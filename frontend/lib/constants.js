@@ -1,0 +1,17 @@
+export const ACTION_TYPES = [
+  'All Activities',
+  'Document Created',
+  'Document Viewed',
+  'Signature Placed',
+  'Document Reviewed',
+  'Document Signed',
+  'Signed Copy Generated',
+  'Audit Chain Verified',
+  'Audit Completed',
+  'Document Downloaded',
+  'Document Declined',
+  'Changes Requested',
+  'User Added',
+  'User Updated',
+  'Privilege Changed',
+];
