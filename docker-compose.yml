@@ -4,19 +4,19 @@ services:
   # MongoDB Service
   mongodb:
     image: mongo:6.0
-    container_name: digisign-mongodb
+    container_name: signvault-mongodb
     restart: unless-stopped
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: password123
-      MONGO_INITDB_DATABASE: digital-signatures
+      MONGO_INITDB_DATABASE: signvault
     ports:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb
     networks:
-      - digisign-network
+      - signvault-network
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
       interval: 10s
@@ -28,17 +28,18 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: digisign-backend
+    container_name: signvault-backend
     restart: unless-stopped
     environment:
       PORT: 3001
       NODE_ENV: development
       FRONTEND_URL: http://localhost:3000
-      MONGODB_URI: mongodb://root:password123@mongodb:27017/digital-signatures?authSource=admin
+      MONGODB_URI: mongodb://root:password123@mongodb:27017/signvault?authSource=admin
+      MONGO_DB_NAME: signvault
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
       AWS_REGION: us-east-1
-      S3_BUCKET_NAME: digital-signatures
+      S3_BUCKET_NAME: signvault-documents
       JWT_SECRET: ${JWT_SECRET:-your-secret-key}
     ports:
       - "3001:3001"
@@ -49,7 +50,7 @@ services:
       - ./backend:/app
       - /app/node_modules
     networks:
-      - digisign-network
+      - signvault-network
     healthcheck:
       test: curl -f http://localhost:3001/health || exit 1
       interval: 30s
@@ -62,7 +63,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: digisign-frontend
+    container_name: signvault-frontend
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001
@@ -71,11 +72,8 @@ services:
       - "3000:3000"
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     networks:
-      - digisign-network
+      - signvault-network
     healthcheck:
       test: curl -f http://localhost:3000 || exit 1
       interval: 30s
@@ -86,7 +84,7 @@ services:
   # Optional: MongoDB Express UI
   mongo-express:
     image: mongo-express:latest
-    container_name: digisign-mongo-express
+    container_name: signvault-mongo-express
     restart: unless-stopped
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: root
@@ -97,10 +95,10 @@ services:
     depends_on:
       - mongodb
     networks:
-      - digisign-network
+      - signvault-network
 
 networks:
-  digisign-network:
+  signvault-network:
     driver: bridge
 
 volumes:

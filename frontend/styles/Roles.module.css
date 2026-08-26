@@ -1,0 +1,104 @@
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--sv-text-secondary);
+  font-weight: 500;
+}
+
+.switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--sv-border);
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.switchOn { background: var(--sv-primary); }
+
+.switchKnob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s ease;
+}
+
+.switchKnobOn { transform: translateX(18px); }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--sv-card-bg);
+  border: 1px solid var(--sv-border);
+  border-radius: var(--sv-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--sv-shadow);
+}
+
+.table th {
+  text-align: left;
+  font-size: 12.5px;
+  color: var(--sv-text-secondary);
+  font-weight: 600;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--sv-border);
+  background: #fafbfe;
+}
+
+.table th.center, .table td.center {
+  text-align: center;
+}
+
+.table td {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--sv-border);
+  font-size: 13.5px;
+  vertical-align: top;
+}
+
+.table tr:last-child td { border-bottom: none; }
+
+.permLabel {
+  font-weight: 600;
+  color: var(--sv-text);
+  margin-bottom: 3px;
+}
+
+.permDesc {
+  font-size: 12px;
+  color: var(--sv-text-secondary);
+  max-width: 320px;
+}
+
+.checkBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+
+.checkOn {
+  background: var(--sv-primary-light);
+  color: var(--sv-primary);
+}
+
+.checkOff {
+  background: #f1f5f9;
+  color: var(--sv-text-muted);
+}
+
+.checkBtn:disabled {
+  cursor: default;
+}

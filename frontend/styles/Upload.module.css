@@ -29,7 +29,7 @@
   justify-content: center;
   width: 50px;
   height: 50px;
-  background: #5865f2;
+  background: var(--sv-primary);
   color: white;
   border-radius: 50%;
   font-size: 24px;
@@ -53,7 +53,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 40px;
-  border: 2px dashed #5865f2;
+  border: 2px dashed var(--sv-primary);
   border-radius: 12px;
   background: #f9f9f9;
   cursor: pointer;
@@ -61,7 +61,7 @@
 }
 
 .uploadLabel:hover {
-  border-color: #4752c4;
+  border-color: var(--sv-primary-dark);
   background: #f0f3ff;
 }
 
@@ -73,7 +73,7 @@
 .uploadLabel p {
   font-size: 16px;
   font-weight: 600;
-  color: #5865f2;
+  color: var(--sv-primary);
   margin: 0;
 }
 
@@ -107,7 +107,7 @@
 .uploadButton {
   width: 100%;
   padding: 16px 24px;
-  background: #5865f2;
+  background: var(--sv-primary);
   color: white;
   border: none;
   border-radius: 8px;
@@ -118,7 +118,7 @@
 }
 
 .uploadButton:hover:not(:disabled) {
-  background: #4752c4;
+  background: var(--sv-primary-dark);
 }
 
 .uploadButton:disabled {

@@ -1,108 +1,254 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
-import axios from 'axios';
+import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
+import AppShell from '@/components/AppShell';
 import styles from '@/styles/Sign.module.css';
+import { api } from '@/lib/api';
+import { SignatureRecordDto, Signer } from '@/lib/types';
 
-interface SigningStep {
-  step: number;
-  label: string;
-  completed: boolean;
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 }
+
+const statusMeta: Record<Signer['status'], { icon: string; iconClass: string; label: string; textClass: string }> = {
+  signed: { icon: '✓', iconClass: styles.iconSigned, label: 'Signed', textClass: styles.statusSigned },
+  pending: { icon: '⏱', iconClass: styles.iconPending, label: 'Signature Pending', textClass: styles.statusPending },
+  awaiting: { icon: '•', iconClass: styles.iconAwaiting, label: 'Awaiting prior steps', textClass: styles.statusAwaiting },
+  declined: { icon: '✕', iconClass: styles.iconDeclined, label: 'Declined', textClass: styles.statusDeclined },
+};
 
 const SignPage: React.FC = () => {
   const router = useRouter();
-  const { documentId } = router.query;
-  const [signingSteps, setSigningSteps] = useState<SigningStep[]>([
-    { step: 6, label: 'PDF Signed', completed: false },
-    { step: 7, label: 'Signed PDF Generated', completed: false },
-    { step: 8, label: 'SHA-256 Calculated', completed: false },
-  ]);
+  const { documentId } = router.query as { documentId?: string };
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const [doc, setDoc] = useState<SignatureRecordDto | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [pdfPages, setPdfPages] = useState<HTMLCanvasElement[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
   const [signing, setSigning] = useState(false);
-  const [hashes, setHashes] = useState({ original: '', signed: '' });
+  const [hashes, setHashes] = useState<{ original: string; signed: string } | null>(null);
+
+  const loadDocument = async (id: string) => {
+    try {
+      const res = await api.getDocument(id);
+      setDoc(res.data.data);
+    } catch (error) {
+      toast.error('Document not found');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (documentId) loadDocument(documentId);
+  }, [documentId]);
+
+  useEffect(() => {
+    if (!documentId) return;
+    (async () => {
+      try {
+        const response = await api.previewDocument(documentId);
+        const pdf = await pdfjsLib.getDocument({ data: response.data }).promise;
+        const pages: HTMLCanvasElement[] = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.3 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const context = canvas.getContext('2d')!;
+          await page.render({ canvasContext: context, viewport }).promise;
+          pages.push(canvas);
+        }
+        setPdfPages(pages);
+      } catch {
+        // PDF preview is best-effort — the signing flow doesn't depend on it rendering.
+      }
+    })();
+  }, [documentId]);
+
+  useEffect(() => {
+    if (pdfPages.length > 0 && canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d')!;
+      const pageCanvas = pdfPages[currentPage];
+      canvasRef.current.width = pageCanvas.width;
+      canvasRef.current.height = pageCanvas.height;
+      ctx.drawImage(pageCanvas, 0, 0);
+    }
+  }, [pdfPages, currentPage]);
 
   const handleSign = async () => {
+    if (!documentId) return;
     try {
       setSigning(true);
-
-      // Step 6, 7, 8: Sign PDF
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/signatures/${documentId}/sign`
-      );
-
-      // Update steps as completed
-      setSigningSteps((prev) =>
-        prev.map((s) => ({ ...s, completed: true }))
-      );
-
-      setHashes({
-        original: response.data.data.originalHash,
-        signed: response.data.data.signedPdfHash,
-      });
-
-      toast.success('PDF signed successfully');
-
-      // Proceed to audit
-      setTimeout(() => {
-        router.push(`/audit/${documentId}`);
-      }, 1500);
-    } catch (error) {
-      console.error('Signing error:', error);
-      toast.error('Failed to sign PDF');
+      const response = await api.signDocument(documentId);
+      setHashes({ original: response.data.data.originalHash, signed: response.data.data.signedPdfHash });
+      toast.success('Document signed successfully');
+      await loadDocument(documentId);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to sign document');
     } finally {
       setSigning(false);
     }
   };
 
+  const handleDecline = async () => {
+    if (!documentId) return;
+    try {
+      await api.declineDocument(documentId);
+      toast.success('Document declined');
+      await loadDocument(documentId);
+    } catch {
+      toast.error('Failed to decline document');
+    }
+  };
+
+  const handleRequestChanges = async () => {
+    if (!documentId) return;
+    try {
+      await api.requestChanges(documentId);
+      toast.success('Changes requested');
+    } catch {
+      toast.error('Failed to request changes');
+    }
+  };
+
+  if (loading) {
+    return (
+      <AppShell active="sign" title="Document Sign" subtitle="Loading document…">
+        <div className={styles.loadingBox}>Loading document…</div>
+      </AppShell>
+    );
+  }
+
+  if (!doc) {
+    return (
+      <AppShell active="sign" title="Document Sign">
+        <div className={styles.notReady}>Document not found.</div>
+      </AppShell>
+    );
+  }
+
+  const readyToSign = Boolean(doc.signatureImage) && Boolean(doc.approved);
+  const allSigned = doc.signers.length > 0 && doc.signers.every((s) => s.status === 'signed');
+
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.badge}>6-8</div>
-        <h1>Signing in Progress</h1>
+    <AppShell
+      active="sign"
+      title={doc.fileName}
+      subtitle="Review terms carefully, inspect previous signatures, and digitally sign below."
+    >
+      <div className={styles.certBanner}>
+        <span>🛡️ Digital Certificate Secured: SHA-256 (SignVault CA)</span>
+        <span className={styles.certId}>ID: sv_cert_{doc.documentId.slice(0, 8)}</span>
       </div>
 
-      <div className={styles.stepsContainer}>
-        {signingSteps.map((step) => (
-          <div
-            key={step.step}
-            className={`${styles.step} ${step.completed ? styles.completed : ''}`}
-          >
-            <div className={styles.stepIndicator}>
-              {step.completed ? '✓' : step.step}
-            </div>
-            <div className={styles.stepLabel}>{step.label}</div>
+      <div className={styles.grid}>
+        <div className={styles.docCard}>
+          <div className={styles.docTopRow}>
+            <span>PAGE {currentPage + 1} OF {pdfPages.length || 1}</span>
+            <span>CONFIDENTIAL</span>
           </div>
-        ))}
+
+          {pdfPages.length > 0 ? (
+            <>
+              <div className={styles.pdfCanvasWrap}>
+                <canvas ref={canvasRef} />
+              </div>
+              {pdfPages.length > 1 && (
+                <div className={styles.pagination}>
+                  <button onClick={() => setCurrentPage((p) => Math.max(0, p - 1))} disabled={currentPage === 0}>
+                    ← Previous
+                  </button>
+                  <span>Page {currentPage + 1} of {pdfPages.length}</span>
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(pdfPages.length - 1, p + 1))}
+                    disabled={currentPage === pdfPages.length - 1}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className={styles.loadingBox}>PDF preview unavailable.</div>
+          )}
+
+          {!readyToSign && (
+            <div className={styles.notReady} style={{ marginTop: 16 }}>
+              This document still needs a signature placed and review approval.{' '}
+              <a onClick={() => router.push(`/preview/${doc.documentId}`)} style={{ cursor: 'pointer' }}>
+                Go to Preview & Sign
+              </a>
+            </div>
+          )}
+        </div>
+
+        <div className={styles.pipelineCard}>
+          <h3>Signer Pipeline</h3>
+          {doc.signers.length === 0 && (
+            <p style={{ fontSize: 13, color: 'var(--sv-text-secondary)' }}>No signer pipeline configured for this document.</p>
+          )}
+          {doc.signers.map((signer) => {
+            const meta = statusMeta[signer.status];
+            return (
+              <div key={`${signer.name}-${signer.order}`} className={styles.signerRow}>
+                <span className={`${styles.signerIcon} ${meta.iconClass}`}>{meta.icon}</span>
+                <div>
+                  <div className={styles.signerName}>
+                    {signer.name}
+                    {signer.roleLabel ? ` (${signer.roleLabel})` : ''}
+                  </div>
+                  <div className={`${styles.signerStatus} ${meta.textClass}`}>
+                    {signer.status === 'signed' && signer.signedAt
+                      ? `Signed ${new Date(signer.signedAt).toLocaleString()}`
+                      : meta.label}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          <div className={styles.actions}>
+            <button className={styles.btnPrimary} onClick={handleSign} disabled={!readyToSign || signing || allSigned}>
+              {signing ? 'Signing…' : allSigned ? 'Fully Signed' : '✓ Sign Document'}
+            </button>
+            <div className={styles.btnRow}>
+              <button className={styles.btnSecondary} onClick={handleRequestChanges}>
+                Req. Changes
+              </button>
+              <button className={styles.btnDanger} onClick={handleDecline}>
+                Decline
+              </button>
+            </div>
+          </div>
+
+          {hashes && (
+            <div className={styles.hashesSection}>
+              <h4>SHA-256 Hash Verification</h4>
+              <div className={styles.hashRow}>
+                <label>Original PDF Hash</label>
+                <code>{hashes.original}</code>
+              </div>
+              <div className={styles.hashRow}>
+                <label>Signed PDF Hash</label>
+                <code>{hashes.signed}</code>
+              </div>
+            </div>
+          )}
+
+          {allSigned && (
+            <div className={styles.btnRow} style={{ marginTop: 14 }}>
+              <button className={styles.btnSecondary} onClick={() => router.push(`/audit/${doc.documentId}`)}>
+                View Audit Trail →
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-
-      {signingSteps[0].completed && (
-        <div className={styles.hashesSection}>
-          <h2>SHA-256 Hash Verification</h2>
-          <div className={styles.hashPair}>
-            <div className={styles.hash}>
-              <label>Original PDF Hash</label>
-              <code>{hashes.original}</code>
-            </div>
-            <div className={styles.hash}>
-              <label>Signed PDF Hash</label>
-              <code>{hashes.signed}</code>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!signingSteps[0].completed && (
-        <div className={styles.actionSection}>
-          <button
-            onClick={handleSign}
-            disabled={signing}
-            className={styles.btnPrimary}
-          >
-            {signing ? 'Signing...' : '✓ Sign PDF'}
-          </button>
-        </div>
-      )}
-    </div>
+    </AppShell>
   );
 };
 
