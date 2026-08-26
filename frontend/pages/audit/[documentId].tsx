@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import styles from '@/styles/Audit.module.css';
+import { api } from '@/lib/api';
+import { useRequireAuth } from '@/lib/auth';
 
 interface AuditEvent {
   _id: string;
@@ -12,8 +13,9 @@ interface AuditEvent {
 }
 
 const AuditPage: React.FC = () => {
+  useRequireAuth();
   const router = useRouter();
-  const { documentId } = router.query;
+  const { documentId } = router.query as { documentId?: string };
   const [auditLogs, setAuditLogs] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
@@ -27,9 +29,7 @@ const AuditPage: React.FC = () => {
     const fetchAuditRecords = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/documents/${documentId}/audit-records`
-        );
+        const response = await api.getAuditRecords(documentId as string);
         setAuditLogs(response.data.data.auditTrail || []);
       } catch (error) {
         console.error('Audit records fetch error:', error);
@@ -43,11 +43,10 @@ const AuditPage: React.FC = () => {
   }, [documentId]);
 
   const handleVerifyAudit = async () => {
+    if (!documentId) return;
     try {
       setVerifying(true);
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/documents/${documentId}/verify-audit`
-      );
+      const response = await api.verifyAudit(documentId);
       setIsVerified(response.data.data.isValid);
       toast.success('Audit chain verified successfully');
     } catch (error) {
@@ -59,11 +58,10 @@ const AuditPage: React.FC = () => {
   };
 
   const handleCompleteAudit = async () => {
+    if (!documentId) return;
     try {
       setCompleting(true);
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/documents/${documentId}/complete-audit`
-      );
+      await api.completeAudit(documentId);
       toast.success('Audit completed successfully');
       router.push(`/download/${documentId}`);
     } catch (error) {

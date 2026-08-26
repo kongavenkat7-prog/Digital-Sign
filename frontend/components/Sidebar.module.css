@@ -105,6 +105,28 @@
   gap: 10px;
 }
 
+.footerText {
+  flex: 1;
+  min-width: 0;
+}
+
+.signOut {
+  background: transparent;
+  border: none;
+  color: var(--sv-sidebar-text);
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.signOut:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
 .avatar {
   width: 34px;
   height: 34px;

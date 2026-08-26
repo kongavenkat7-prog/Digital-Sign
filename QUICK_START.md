@@ -37,6 +37,15 @@ And `frontend/.env.local`:
 NEXT_PUBLIC_API_URL=http://localhost:3001
 ```
 
+## Login
+
+Open http://localhost:3000 — it redirects to `/login`. Sign in with:
+
+- **Email**: `konga.venkat7@gmail.com`
+- **Password**: `Venkat@123`
+
+(Override via `ADMIN_EMAIL`/`ADMIN_PASSWORD` in `backend/.env`.)
+
 ## Try it end to end
 
 1. Run `npm run seed` in `backend/` — this creates the demo users (Sarah

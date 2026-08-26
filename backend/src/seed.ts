@@ -13,8 +13,10 @@ const GENESIS_HASH = '0'.repeat(64);
 const chainHash = (prevHash: string, documentId: string, action: string, timestamp: Date, details: any) =>
   calculateSHA256(`${prevHash}|${documentId}|${action}|${timestamp.toISOString()}|${JSON.stringify(details)}`);
 
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'konga.venkat7@gmail.com').toLowerCase();
+
 const USERS = [
-  { name: 'Sarah Jenkins', email: 'sarah@signvault.com', title: 'Compliance Officer', role: 'Administrator', status: 'active' },
+  { name: 'Sarah Jenkins', email: ADMIN_EMAIL, title: 'Compliance Officer', role: 'Administrator', status: 'active' },
   { name: 'David Miller', email: 'd.miller@millerholding.com', title: 'Tenant', role: 'Manager', status: 'active' },
   { name: 'Elena Rostova', email: 'elena.r@rostova.io', title: 'Witness', role: 'Signer', status: 'active' },
   { name: 'Marcus Aurelius', email: 'marcus@rome.org', title: 'Auditor', role: 'Viewer', status: 'inactive' },

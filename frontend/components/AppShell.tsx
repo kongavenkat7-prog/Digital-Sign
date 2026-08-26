@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Sidebar from './Sidebar';
 import styles from './AppShell.module.css';
+import { getToken, useRequireAuth } from '@/lib/auth';
 
 interface AppShellProps {
   active: string;
@@ -11,6 +12,15 @@ interface AppShellProps {
 }
 
 const AppShell: React.FC<AppShellProps> = ({ active, title, subtitle, actions, children }) => {
+  useRequireAuth();
+  const [authed, setAuthed] = useState(false);
+
+  useEffect(() => {
+    if (getToken()) setAuthed(true);
+  }, []);
+
+  if (!authed) return null;
+
   return (
     <div className={styles.shell}>
       <Sidebar active={active} />

@@ -41,6 +41,8 @@ services:
       AWS_REGION: us-east-1
       S3_BUCKET_NAME: signvault-documents
       JWT_SECRET: ${JWT_SECRET:-your-secret-key}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-konga.venkat7@gmail.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Venkat@123}
     ports:
       - "3001:3001"
     depends_on:
