@@ -39,24 +39,24 @@ storage (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`).
 ```
 backend/
   src/
-    db.ts               # MongoDB connection
+    db.js               # MongoDB connection
     models/              # User, RolePermission, SignatureRecord, AuditLog
     routes/               # documents, users, roles, auditLogs, dashboard, auth
     utils/                # crypto (SHA-256), s3, pdfSign (signature embedding), audit (hash-chained logging)
-    seed.ts               # demo data matching the SignVault mockups
-    server.ts             # Express app assembly
+    seed.js               # demo data matching the SignVault mockups
+    server.js             # Express app assembly
 
 frontend/
   components/            # AppShell, Sidebar, Badge (shared SignVault UI)
-  lib/                   # api.ts (HTTP client), types.ts
+  lib/                   # api.js (HTTP client), types.js
   pages/
-    dashboard.tsx        # stats, awaiting/recently-completed lists, status donut
-    documents/index.tsx  # document list -> Document Sign
-    sign/[documentId].tsx  # Document Sign: PDF viewer + signer pipeline
-    users.tsx             # User Management
-    audit-logs.tsx        # global Audit Logs (filters, CSV export)
-    roles.tsx             # Role Privileges permission matrix
-    upload.tsx, preview/, review/, audit/, download/  # the underlying sign workflow
+    dashboard.jsx        # stats, awaiting/recently-completed lists, status donut
+    documents/index.jsx  # document list -> Document Sign
+    sign/[documentId].jsx  # Document Sign: PDF viewer + signer pipeline
+    users.jsx             # User Management
+    audit-logs.jsx        # global Audit Logs (filters, CSV export)
+    roles.jsx             # Role Privileges permission matrix
+    upload.jsx, preview/, review/, audit/, download/  # the underlying sign workflow
 ```
 
 ## Signing workflow
@@ -110,7 +110,7 @@ on a 401.
 - **Single account, not multi-user auth**: there's one gated login (above)
   rather than per-user passwords — the design has a single fixed identity in
   the sidebar. `/api/auth/me` returns the seeded Administrator (Sarah
-  Jenkins). Extend `routes/auth.ts` before treating other seeded Users as
+  Jenkins). Extend `routes/auth.js` before treating other seeded Users as
   real, independently-authenticated accounts.
 - **Environment variables**: `backend/.env` (`MONGODB_URI`, `AWS_*`,
   `S3_BUCKET_NAME`, `FRONTEND_URL`, `JWT_SECRET`, `ADMIN_EMAIL`,
