@@ -1,0 +1,221 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.header {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 30px 20px;
+  text-align: center;
+  color: white;
+}
+
+.headerContent {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.logoIcon {
+  font-size: 32px;
+}
+
+.header h1 {
+  font-size: 36px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.tagline {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 8px 0 0 0;
+}
+
+.main {
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 60px 20px;
+}
+
+.hero {
+  text-align: center;
+  color: white;
+  margin-bottom: 80px;
+}
+
+.heroContent h2 {
+  font-size: 48px;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.heroContent p {
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0 0 30px 0;
+}
+
+.ctaButton {
+  padding: 16px 40px;
+  background: white;
+  color: #667eea;
+  border: none;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.ctaButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.workflowSection {
+  margin-bottom: 80px;
+}
+
+.workflowSection h2 {
+  font-size: 32px;
+  font-weight: 700;
+  color: white;
+  text-align: center;
+  margin: 0 0 50px 0;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.workflowGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.workflowCard {
+  background: white;
+  border-radius: 12px;
+  padding: 30px 20px;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s;
+}
+
+.workflowCard:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.workflowIcon {
+  font-size: 40px;
+  margin-bottom: 16px;
+}
+
+.workflowCard h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 12px 0;
+}
+
+.workflowCard p {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+.featuresSection {
+  margin-bottom: 80px;
+}
+
+.featuresSection h2 {
+  font-size: 32px;
+  font-weight: 700;
+  color: white;
+  text-align: center;
+  margin: 0 0 50px 0;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.featuresGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 25px;
+}
+
+.featureCard {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s;
+}
+
+.featureCard:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.featureIcon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.featureCard h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 12px 0;
+}
+
+.featureCard p {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+.footer {
+  background: rgba(0, 0, 0, 0.3);
+  color: white;
+  text-align: center;
+  padding: 30px 20px;
+  margin-top: auto;
+}
+
+.footer p {
+  margin: 0;
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .main {
+    padding: 40px 15px;
+  }
+
+  .heroContent h2 {
+    font-size: 32px;
+  }
+
+  .heroContent p {
+    font-size: 16px;
+  }
+
+  .workflowGrid,
+  .featuresGrid {
+    grid-template-columns: 1fr;
+  }
+}

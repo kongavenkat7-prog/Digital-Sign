@@ -1,0 +1,246 @@
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.container h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 40px;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  font-size: 18px;
+  color: #666;
+}
+
+.previewSection {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  margin-top: 30px;
+}
+
+.pdfViewer {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.pdfViewer h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #1a1a1a;
+}
+
+.pdfCanvas {
+  width: 100%;
+  height: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f5f5f5;
+  display: block;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  gap: 10px;
+}
+
+.pagination button {
+  padding: 10px 20px;
+  background: #5865f2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #4752c4;
+}
+
+.pagination button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.pagination span {
+  font-weight: 600;
+  color: #666;
+}
+
+.signatureSection {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.signatureSection h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #1a1a1a;
+}
+
+.signatureTabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 25px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.tab {
+  padding: 12px 20px;
+  background: transparent;
+  border: none;
+  color: #666;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s;
+}
+
+.tab:hover {
+  color: #5865f2;
+}
+
+.tab.active {
+  color: #5865f2;
+  border-bottom-color: #5865f2;
+}
+
+.drawContainer,
+.typeContainer,
+.uploadContainer {
+  margin-bottom: 20px;
+}
+
+.hint {
+  font-size: 13px;
+  color: #999;
+  margin-bottom: 16px;
+}
+
+.signatureCanvas {
+  width: 100%;
+  height: 200px;
+  border: 2px solid #5865f2;
+  border-radius: 8px;
+  background: white;
+  cursor: crosshair;
+  display: block;
+  margin-bottom: 20px;
+}
+
+.signatureInput {
+  width: 100%;
+  padding: 14px;
+  border: 2px solid #5865f2;
+  border-radius: 8px;
+  font-size: 16px;
+  font-family: cursive;
+  margin-bottom: 20px;
+}
+
+.signatureInput:focus {
+  outline: none;
+  border-color: #4752c4;
+  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.1);
+}
+
+.fileInput {
+  width: 100%;
+  padding: 14px;
+  border: 2px solid #5865f2;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.fileInput:focus {
+  outline: none;
+  border-color: #4752c4;
+}
+
+.signaturePreview {
+  margin: 20px 0;
+  padding: 20px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.signaturePreview img {
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  max-height: 150px;
+  object-fit: contain;
+}
+
+.signatureActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.btnPrimary,
+.btnSecondary {
+  flex: 1;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btnPrimary {
+  background: #5865f2;
+  color: white;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: #4752c4;
+}
+
+.btnSecondary {
+  background: #e0e0e0;
+  color: #1a1a1a;
+}
+
+.btnSecondary:hover:not(:disabled) {
+  background: #ccc;
+}
+
+@media (max-width: 768px) {
+  .previewSection {
+    grid-template-columns: 1fr;
+  }
+
+  .signatureTabs {
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+}

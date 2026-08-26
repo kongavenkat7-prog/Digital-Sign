@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+dist/
+*.log
+.env
+.env.local
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+coverage/

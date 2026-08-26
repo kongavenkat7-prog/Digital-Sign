@@ -1,0 +1,26 @@
+{
+  "name": "digisign-frontend",
+  "version": "1.0.0",
+  "description": "Digital Signature Frontend",
+  "main": "pages/index.tsx",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint pages lib"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "next": "^14.0.0",
+    "typescript": "^5.0.0",
+    "axios": "^1.6.0",
+    "zustand": "^4.4.0",
+    "react-hot-toast": "^2.4.1",
+    "pdfjs-dist": "^3.11.174"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/node": "^20.0.0"
+  }
+}
