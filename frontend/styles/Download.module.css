@@ -17,7 +17,7 @@
   justify-content: center;
   width: 60px;
   height: 60px;
-  background: #28a745;
+  background: var(--sv-success);
   color: white;
   border-radius: 50%;
   font-size: 24px;
@@ -47,7 +47,7 @@
 }
 
 .successCard {
-  background: linear-gradient(135deg, #28a745, #20c997);
+  background: linear-gradient(135deg, var(--sv-success), #22c55e);
   border-radius: 12px;
   padding: 40px;
   text-align: center;
@@ -130,7 +130,7 @@
 .statusBadge {
   display: inline-block;
   padding: 6px 12px;
-  background: #28a745;
+  background: var(--sv-success);
   color: white;
   border-radius: 20px;
   font-size: 13px;
@@ -170,21 +170,21 @@
 }
 
 .btnPrimary {
-  background: #28a745;
+  background: var(--sv-success);
   color: white;
 }
 
 .btnPrimary:hover:not(:disabled) {
-  background: #218838;
+  background: #15803d;
 }
 
 .btnSecondary {
-  background: #5865f2;
+  background: var(--sv-primary);
   color: white;
 }
 
 .btnSecondary:hover:not(:disabled) {
-  background: #4752c4;
+  background: var(--sv-primary-dark);
 }
 
 .btnPrimary:disabled,
@@ -202,8 +202,8 @@
 .btnText {
   padding: 12px 24px;
   background: transparent;
-  color: #5865f2;
-  border: 1px solid #5865f2;
+  color: var(--sv-primary);
+  border: 1px solid var(--sv-primary);
   border-radius: 8px;
   font-size: 16px;
   font-weight: 600;

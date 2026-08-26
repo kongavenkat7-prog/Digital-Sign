@@ -1,7 +1,7 @@
 {
-  "name": "digisign-frontend",
+  "name": "signvault-frontend",
   "version": "1.0.0",
-  "description": "Digital Signature Frontend",
+  "description": "SignVault - Enterprise Digital Signature & Audit Platform - Frontend",
   "main": "pages/index.tsx",
   "scripts": {
     "dev": "next dev",
@@ -15,7 +15,6 @@
     "next": "^14.0.0",
     "typescript": "^5.0.0",
     "axios": "^1.6.0",
-    "zustand": "^4.4.0",
     "react-hot-toast": "^2.4.1",
     "pdfjs-dist": "^3.11.174"
   },

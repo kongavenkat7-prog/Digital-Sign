@@ -139,7 +139,7 @@ const DownloadPage: React.FC = () => {
 
           <div className={styles.actionsSection}>
             <button
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/dashboard')}
               className={styles.btnText}
             >
               ← Back to Dashboard

@@ -1,0 +1,521 @@
+import { Router, Request, Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import { SignatureRecord } from '../models/SignatureRecord';
+import { AuditLog } from '../models/AuditLog';
+import { calculateSHA256 } from '../utils/crypto';
+import { uploadToS3, downloadFromS3 } from '../utils/s3';
+import { stampSignature } from '../utils/pdfSign';
+import { createAuditLog, verifyAuditChain } from '../utils/audit';
+import { CURRENT_USER } from './auth';
+
+const router = Router();
+
+// List documents (backs the Dashboard's "Awaiting Your Signature" / "Recently Completed" widgets)
+router.get('/documents', async (req: Request, res: Response) => {
+  try {
+    const { status, limit } = req.query;
+    const query: Record<string, any> = {};
+    if (status) query.status = status;
+
+    const records = await SignatureRecord.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit ? parseInt(limit as string, 10) : 50);
+
+    res.status(200).json({ success: true, data: records });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to list documents', message: (error as any).message });
+  }
+});
+
+// Upload PDF
+router.post('/documents/upload', async (req: Request, res: Response) => {
+  try {
+    const { fileName, fileData, requestedBy, dueDate, signers } = req.body;
+
+    if (!fileName || !fileData) {
+      return res.status(400).json({ error: 'Missing required fields: fileName, fileData' });
+    }
+
+    const documentId = uuidv4();
+    const s3Key = `originals/${documentId}/${fileName}`;
+
+    const base64Data = fileData.includes(',') ? fileData.split(',')[1] : fileData;
+    const fileBuffer = Buffer.from(base64Data, 'base64');
+    const pdfHash = calculateSHA256(fileBuffer);
+
+    const s3Url = await uploadToS3(s3Key, fileBuffer, 'application/pdf');
+
+    const signatureRecord = new SignatureRecord({
+      documentId,
+      fileName,
+      fileSize: fileBuffer.length,
+      requestedBy: requestedBy || CURRENT_USER.name,
+      dueDate: dueDate ? new Date(dueDate) : undefined,
+      signers: Array.isArray(signers)
+        ? signers.map((s: any, index: number) => ({
+            name: s.name,
+            email: s.email,
+            roleLabel: s.roleLabel,
+            order: index,
+            status: index === 0 ? 'pending' : 'awaiting',
+          }))
+        : [],
+      s3OriginalKey: s3Key,
+      pdfHash,
+      status: 'pending',
+      auditTrail: [],
+    });
+
+    await signatureRecord.save();
+
+    const auditLogId = await createAuditLog(
+      documentId,
+      'Document Created',
+      { fileName, fileSize: fileBuffer.length, pdfHash },
+      req,
+      { userName: requestedBy || CURRENT_USER.name, documentName: fileName }
+    );
+
+    signatureRecord.auditTrail.push(auditLogId);
+    await signatureRecord.save();
+
+    res.status(201).json({
+      success: true,
+      documentId,
+      message: 'PDF uploaded successfully',
+      data: { documentId, fileName, pdfHash, s3Url },
+    });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ error: 'Upload failed', message: (error as any).message });
+  }
+});
+
+// Preview PDF
+router.get('/documents/:documentId/preview', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
+
+    const pdfBuffer = await downloadFromS3(signatureRecord.s3OriginalKey!);
+
+    await createAuditLog(
+      documentId,
+      'Document Viewed',
+      { fileName: signatureRecord.fileName },
+      req,
+      { userName: CURRENT_USER.name, documentName: signatureRecord.fileName }
+    );
+
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Length', pdfBuffer.length.toString());
+    res.send(pdfBuffer);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to preview PDF', message: (error as any).message });
+  }
+});
+
+// Get single document (full detail incl. signer pipeline)
+router.get('/documents/:documentId', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
+    res.status(200).json({ success: true, data: signatureRecord });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get document', message: (error as any).message });
+  }
+});
+
+// Legacy alias
+router.get('/documents/:documentId/status', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
+    res.status(200).json({ success: true, data: signatureRecord });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get document status', message: (error as any).message });
+  }
+});
+
+// Set / replace the signer pipeline
+router.post('/documents/:documentId/signers', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const { signers } = req.body;
+    if (!Array.isArray(signers) || signers.length === 0) {
+      return res.status(400).json({ error: 'signers must be a non-empty array' });
+    }
+
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
+
+    signatureRecord.signers = signers.map((s: any, index: number) => ({
+      name: s.name,
+      email: s.email,
+      roleLabel: s.roleLabel || '',
+      order: index,
+      status: index === 0 ? 'pending' : 'awaiting',
+    })) as any;
+    await signatureRecord.save();
+
+    res.status(200).json({ success: true, data: signatureRecord });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to set signers', message: (error as any).message });
+  }
+});
+
+// Place Signature
+router.post('/signatures/place', async (req: Request, res: Response) => {
+  try {
+    const { documentId, signatureImage, signatureX, signatureY, pageNumber } = req.body;
+
+    if (!documentId || !signatureImage || signatureX === undefined || signatureY === undefined) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
+
+    signatureRecord.signatureImage = signatureImage;
+    signatureRecord.signatureX = signatureX;
+    signatureRecord.signatureY = signatureY;
+    signatureRecord.pageNumber = pageNumber || 1;
+    await signatureRecord.save();
+
+    const auditLogId = await createAuditLog(
+      documentId,
+      'Signature Placed',
+      { signatureX, signatureY, pageNumber },
+      req,
+      { userName: CURRENT_USER.name, documentName: signatureRecord.fileName }
+    );
+    signatureRecord.auditTrail.push(auditLogId);
+    await signatureRecord.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Signature placed successfully',
+      data: { documentId, signatureX, signatureY, pageNumber },
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to place signature', message: (error as any).message });
+  }
+});
+
+// Review & Confirm
+router.post('/signatures/:documentId/review', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const { approved, comments } = req.body;
+
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
+
+    signatureRecord.approved = Boolean(approved);
+
+    const auditLogId = await createAuditLog(
+      documentId,
+      'Document Reviewed',
+      { approved, comments },
+      req,
+      { userName: CURRENT_USER.name, documentName: signatureRecord.fileName }
+    );
+    signatureRecord.auditTrail.push(auditLogId);
+    await signatureRecord.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Document reviewed',
+      data: { documentId, approved, reviewDate: new Date() },
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to review document', message: (error as any).message });
+  }
+});
+
+// Sign PDF — advances the next pending signer in the pipeline
+router.post('/signatures/:documentId/sign', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const { signerName } = req.body;
+
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord || !signatureRecord.signatureImage) {
+      return res.status(400).json({ error: 'Document not ready for signing' });
+    }
+    if (!signatureRecord.approved) {
+      return res.status(400).json({ error: 'Document must be reviewed and approved before signing' });
+    }
+
+    const currentSigner =
+      signatureRecord.signers.find((s: any) => s.status === 'pending') ||
+      signatureRecord.signers[0];
+    const effectiveSignerName = signerName || currentSigner?.name || CURRENT_USER.name;
+
+    const originalPdfBuffer = await downloadFromS3(signatureRecord.s3OriginalKey!);
+    const signedAt = new Date();
+    const signedPdfBuffer = await stampSignature(originalPdfBuffer, {
+      signatureImage: signatureRecord.signatureImage,
+      signatureX: signatureRecord.signatureX,
+      signatureY: signatureRecord.signatureY,
+      pageNumber: signatureRecord.pageNumber,
+      signerName: effectiveSignerName,
+      signedAt,
+    });
+
+    const signedPdfHash = calculateSHA256(signedPdfBuffer);
+    const signedS3Key = `signed/${documentId}/${signatureRecord.fileName}`;
+    const s3Url = await uploadToS3(signedS3Key, signedPdfBuffer, 'application/pdf');
+
+    signatureRecord.s3SignedKey = signedS3Key;
+    signatureRecord.signedPdfHash = signedPdfHash;
+    signatureRecord.signedAt = signedAt;
+
+    if (currentSigner) {
+      currentSigner.status = 'signed';
+      currentSigner.signedAt = signedAt;
+      currentSigner.ipAddress = req.ip || 'unknown';
+      const next = signatureRecord.signers.find((s: any) => s.order === (currentSigner.order ?? 0) + 1);
+      if (next) next.status = 'pending';
+    }
+
+    const allSigned = signatureRecord.signers.every((s: any) => s.status === 'signed');
+    if (allSigned || signatureRecord.signers.length === 0) {
+      signatureRecord.status = 'signed';
+    }
+
+    const signAuditId = await createAuditLog(
+      documentId,
+      'Document Signed',
+      { signerName: effectiveSignerName, timestamp: signedAt },
+      req,
+      { userName: effectiveSignerName, documentName: signatureRecord.fileName }
+    );
+    const generateAuditId = await createAuditLog(
+      documentId,
+      'Signed Copy Generated',
+      { s3Location: s3Url, fileSize: signedPdfBuffer.length, originalHash: signatureRecord.pdfHash, signedHash: signedPdfHash },
+      req,
+      { userName: effectiveSignerName, documentName: signatureRecord.fileName }
+    );
+
+    signatureRecord.auditTrail.push(signAuditId, generateAuditId);
+    await signatureRecord.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'PDF signed successfully',
+      data: {
+        documentId,
+        signedPdfHash,
+        s3SignedUrl: s3Url,
+        originalHash: signatureRecord.pdfHash,
+        signedAt: signatureRecord.signedAt,
+        status: signatureRecord.status,
+        signers: signatureRecord.signers,
+      },
+    });
+  } catch (error) {
+    console.error('Signing error:', error);
+    res.status(500).json({ error: 'Failed to sign PDF', message: (error as any).message });
+  }
+});
+
+// Decline
+router.post('/documents/:documentId/decline', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const { reason } = req.body;
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
+
+    signatureRecord.status = 'declined';
+    const currentSigner = signatureRecord.signers.find((s: any) => s.status === 'pending');
+    if (currentSigner) currentSigner.status = 'declined';
+
+    const auditLogId = await createAuditLog(
+      documentId,
+      'Document Declined',
+      { reason: reason || '' },
+      req,
+      { userName: CURRENT_USER.name, documentName: signatureRecord.fileName }
+    );
+    signatureRecord.auditTrail.push(auditLogId);
+    await signatureRecord.save();
+
+    res.status(200).json({ success: true, data: signatureRecord });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to decline document', message: (error as any).message });
+  }
+});
+
+// Request changes
+router.post('/documents/:documentId/request-changes', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const { comments } = req.body;
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
+
+    const auditLogId = await createAuditLog(
+      documentId,
+      'Changes Requested',
+      { comments: comments || '' },
+      req,
+      { userName: CURRENT_USER.name, documentName: signatureRecord.fileName }
+    );
+    signatureRecord.auditTrail.push(auditLogId);
+    await signatureRecord.save();
+
+    res.status(200).json({ success: true, data: signatureRecord });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to request changes', message: (error as any).message });
+  }
+});
+
+// Get Audit Records for a document
+router.get('/documents/:documentId/audit-records', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
+
+    const auditLogs = await AuditLog.find({ documentId }).sort({ timestamp: 1 });
+
+    res.status(200).json({
+      success: true,
+      data: { documentId, totalEvents: auditLogs.length, auditTrail: auditLogs },
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to retrieve audit records', message: (error as any).message });
+  }
+});
+
+// Verify Audit Chain — recomputes the hash chain rather than trusting a flag
+router.post('/documents/:documentId/verify-audit', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
+
+    const auditLogs = await AuditLog.find({ documentId }).sort({ timestamp: 1 });
+    const isValid = auditLogs.length > 0 && verifyAuditChain(auditLogs as any);
+
+    const auditChainDetails = auditLogs.map((log, index) => ({
+      sequence: index + 1,
+      timestamp: log.timestamp,
+      action: log.action,
+      details: log.details,
+    }));
+
+    const verifyAuditId = await createAuditLog(
+      documentId,
+      'Audit Chain Verified',
+      { isValid, eventCount: auditLogs.length },
+      req,
+      { userName: CURRENT_USER.name, documentName: signatureRecord.fileName }
+    );
+    signatureRecord.auditTrail.push(verifyAuditId);
+    await signatureRecord.save();
+
+    res.status(200).json({
+      success: true,
+      data: { documentId, isValid, auditChain: auditChainDetails, verificationDate: new Date() },
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to verify audit chain', message: (error as any).message });
+  }
+});
+
+// Complete Audit
+router.post('/documents/:documentId/complete-audit', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
+
+    if (signatureRecord.status !== 'signed') {
+      return res.status(400).json({ error: 'Document must be fully signed before its audit can be completed' });
+    }
+
+    signatureRecord.status = 'verified';
+    signatureRecord.verifiedAt = new Date();
+
+    const auditCompleteId = await createAuditLog(
+      documentId,
+      'Audit Completed',
+      { status: 'verified', completionDate: signatureRecord.verifiedAt },
+      req,
+      { userName: CURRENT_USER.name, documentName: signatureRecord.fileName }
+    );
+    signatureRecord.auditTrail.push(auditCompleteId);
+    await signatureRecord.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Audit completed successfully',
+      data: { documentId, status: signatureRecord.status, verifiedAt: signatureRecord.verifiedAt },
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to complete audit', message: (error as any).message });
+  }
+});
+
+// Download Signed PDF
+router.get('/documents/:documentId/download-signed', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord || !signatureRecord.s3SignedKey || !['signed', 'verified'].includes(signatureRecord.status)) {
+      return res.status(400).json({ error: 'Document not ready for download' });
+    }
+
+    const signedPdfBuffer = await downloadFromS3(signatureRecord.s3SignedKey);
+
+    await createAuditLog(
+      documentId,
+      'Document Downloaded',
+      { fileName: signatureRecord.fileName, variant: 'signed' },
+      req,
+      { userName: CURRENT_USER.name, documentName: signatureRecord.fileName }
+    );
+
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', `attachment; filename="${signatureRecord.fileName}-signed.pdf"`);
+    res.set('Content-Length', signedPdfBuffer.length.toString());
+    res.send(signedPdfBuffer);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to download signed PDF', message: (error as any).message });
+  }
+});
+
+// Download Original PDF
+router.get('/documents/:documentId/download-original', async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.params;
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
+
+    const originalPdfBuffer = await downloadFromS3(signatureRecord.s3OriginalKey!);
+
+    await createAuditLog(
+      documentId,
+      'Document Downloaded',
+      { fileName: signatureRecord.fileName, variant: 'original' },
+      req,
+      { userName: CURRENT_USER.name, documentName: signatureRecord.fileName }
+    );
+
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', `attachment; filename="${signatureRecord.fileName}"`);
+    res.set('Content-Length', originalPdfBuffer.length.toString());
+    res.send(originalPdfBuffer);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to download original PDF', message: (error as any).message });
+  }
+});
+
+export default router;

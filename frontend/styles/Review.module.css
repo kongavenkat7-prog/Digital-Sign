@@ -56,7 +56,7 @@
   width: 20px;
   height: 20px;
   cursor: pointer;
-  accent-color: #5865f2;
+  accent-color: var(--sv-primary);
 }
 
 .approvalCheck {
@@ -76,7 +76,7 @@
   width: 22px;
   height: 22px;
   cursor: pointer;
-  accent-color: #5865f2;
+  accent-color: var(--sv-primary);
 }
 
 .textarea {
@@ -92,14 +92,14 @@
 
 .textarea:focus {
   outline: none;
-  border-color: #5865f2;
-  box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.1);
+  border-color: var(--sv-primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
 }
 
 .btnPrimary {
   width: 100%;
   padding: 16px 24px;
-  background: #5865f2;
+  background: var(--sv-primary);
   color: white;
   border: none;
   border-radius: 8px;
@@ -111,7 +111,7 @@
 }
 
 .btnPrimary:hover:not(:disabled) {
-  background: #4752c4;
+  background: var(--sv-primary-dark);
 }
 
 .btnPrimary:disabled {
