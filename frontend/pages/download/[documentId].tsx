@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import styles from '@/styles/Download.module.css';
+import { api } from '@/lib/api';
+import { useRequireAuth } from '@/lib/auth';
 
 const DownloadPage: React.FC = () => {
+  useRequireAuth();
   const router = useRouter();
-  const { documentId } = router.query;
+  const { documentId } = router.query as { documentId?: string };
   const [documentStatus, setDocumentStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
@@ -16,9 +18,7 @@ const DownloadPage: React.FC = () => {
 
     const fetchStatus = async () => {
       try {
-        const response = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/documents/${documentId}/status`
-        );
+        const response = await api.getDocumentStatus(documentId);
         setDocumentStatus(response.data.data);
       } catch (error) {
         console.error('Status fetch error:', error);
@@ -32,17 +32,11 @@ const DownloadPage: React.FC = () => {
   }, [documentId]);
 
   const handleDownload = async (type: 'signed' | 'original') => {
+    if (!documentId) return;
     try {
       setDownloading(type);
-      const endpoint =
-        type === 'signed'
-          ? `/api/documents/${documentId}/download-signed`
-          : `/api/documents/${documentId}/download-original`;
-
-      const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`,
-        { responseType: 'blob' }
-      );
+      const response =
+        type === 'signed' ? await api.downloadSigned(documentId) : await api.downloadOriginal(documentId);
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');

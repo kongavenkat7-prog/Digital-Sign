@@ -6,6 +6,7 @@ import compression from 'compression';
 import morgan from 'morgan';
 
 import { connectDB } from './db';
+import { requireAuth } from './middleware/auth';
 import documentsRouter from './routes/documents';
 import usersRouter from './routes/users';
 import rolesRouter from './routes/roles';
@@ -36,12 +37,15 @@ app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', timestamp: new Date(), uptime: process.uptime() });
 });
 
-app.use('/api', documentsRouter);
-app.use('/api/users', usersRouter);
-app.use('/api/roles', rolesRouter);
-app.use('/api/audit-logs', auditLogsRouter);
-app.use('/api/dashboard', dashboardRouter);
+// /api/auth mounts its own auth (login is public, /me requires a token)
 app.use('/api/auth', authRouter);
+
+// Every other /api route requires a valid session
+app.use('/api', requireAuth, documentsRouter);
+app.use('/api/users', requireAuth, usersRouter);
+app.use('/api/roles', requireAuth, rolesRouter);
+app.use('/api/audit-logs', requireAuth, auditLogsRouter);
+app.use('/api/dashboard', requireAuth, dashboardRouter);
 
 // Error handling middleware
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

@@ -1,26 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/router';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import styles from '@/styles/Review.module.css';
+import { api } from '@/lib/api';
+import { useRequireAuth } from '@/lib/auth';
 
 const ReviewPage: React.FC = () => {
+  useRequireAuth();
   const router = useRouter();
-  const { documentId } = router.query;
+  const { documentId } = router.query as { documentId?: string };
   const [approved, setApproved] = useState(false);
   const [comments, setComments] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const handleReview = async () => {
+    if (!documentId) return;
     try {
       setSubmitting(true);
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/signatures/${documentId}/review`,
-        {
-          approved,
-          comments,
-        }
-      );
+      await api.reviewDocument(documentId, approved, comments);
       toast.success('Document reviewed successfully');
       router.push(`/sign/${documentId}`);
     } catch (error) {

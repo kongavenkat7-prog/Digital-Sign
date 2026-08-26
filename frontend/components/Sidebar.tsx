@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import styles from './Sidebar.module.css';
 import { api } from '@/lib/api';
+import { clearToken } from '@/lib/auth';
 
 const icons: Record<string, JSX.Element> = {
   dashboard: (
@@ -114,10 +115,25 @@ const Sidebar: React.FC<{ active: string }> = ({ active }) => {
 
       <div className={styles.footer}>
         <div className={styles.avatar}>{initials(user.name)}</div>
-        <div>
+        <div className={styles.footerText}>
           <div className={styles.userName}>{user.name}</div>
           <div className={styles.userTitle}>{user.title}</div>
         </div>
+        <button
+          type="button"
+          className={styles.signOut}
+          title="Sign out"
+          onClick={() => {
+            clearToken();
+            router.push('/login');
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <path d="M16 17l5-5-5-5" />
+            <path d="M21 12H9" />
+          </svg>
+        </button>
       </div>
     </aside>
   );

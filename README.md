@@ -88,18 +88,33 @@ GET       /api/users            POST /api/users            PUT /api/users/:id
 GET/PUT   /api/roles/permissions
 GET       /api/audit-logs       GET /api/audit-logs/export
 GET       /api/dashboard/stats
-GET       /api/auth/me
+POST      /api/auth/login   GET /api/auth/me
 ```
+
+## Login
+
+SignVault is single-account gated rather than open registration. Every
+`/api/*` route except `/api/auth/login` (and `/health`) requires a Bearer
+token issued by that login.
+
+- **Email**: `konga.venkat7@gmail.com`
+- **Password**: `Venkat@123`
+
+Override these via `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `backend/.env`. The
+token is a JWT signed with `JWT_SECRET` (12h expiry); the frontend stores it
+in `localStorage` and attaches it to every request, redirecting to `/login`
+on a 401.
 
 ## Notes & known simplifications
 
-- **Auth**: there is no login screen (the design has a single fixed identity
-  in the sidebar). `/api/auth/me` returns the seeded Administrator
-  (Sarah Jenkins). Swap this for real session/JWT auth before exposing this
-  to untrusted users.
+- **Single account, not multi-user auth**: there's one gated login (above)
+  rather than per-user passwords — the design has a single fixed identity in
+  the sidebar. `/api/auth/me` returns the seeded Administrator (Sarah
+  Jenkins). Extend `routes/auth.ts` before treating other seeded Users as
+  real, independently-authenticated accounts.
 - **Environment variables**: `backend/.env` (`MONGODB_URI`, `AWS_*`,
-  `S3_BUCKET_NAME`, `FRONTEND_URL`) and `frontend/.env.local`
-  (`NEXT_PUBLIC_API_URL`).
+  `S3_BUCKET_NAME`, `FRONTEND_URL`, `JWT_SECRET`, `ADMIN_EMAIL`,
+  `ADMIN_PASSWORD`) and `frontend/.env.local` (`NEXT_PUBLIC_API_URL`).
 
 ## License
 

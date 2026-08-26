@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import styles from '@/styles/Upload.module.css';
+import { api } from '@/lib/api';
+import { useRequireAuth } from '@/lib/auth';
 
 const UploadPage: React.FC = () => {
+  useRequireAuth();
   const router = useRouter();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -31,13 +33,7 @@ const UploadPage: React.FC = () => {
       reader.onload = async (e) => {
         const fileData = e.target?.result as string;
         try {
-          const response = await axios.post(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/documents/upload`,
-            {
-              fileName: selectedFile.name,
-              fileData: fileData,
-            }
-          );
+          const response = await api.uploadDocument(selectedFile.name, fileData);
 
           toast.success('PDF uploaded successfully');
           router.push(`/preview/${response.data.data.documentId}`);
