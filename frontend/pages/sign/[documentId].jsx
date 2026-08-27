@@ -44,11 +44,15 @@ const SignPage = () => {
     if (documentId) loadDocument(documentId);
   }, [documentId]);
 
+  const hasSignedCopy = Boolean(doc && doc.s3SignedKey);
+
   useEffect(() => {
-    if (!documentId) return;
+    if (!documentId || !doc) return;
     (async () => {
       try {
-        const response = await api.previewDocument(documentId);
+        const response = hasSignedCopy
+          ? await api.previewSignedDocument(documentId)
+          : await api.previewDocument(documentId);
         const pdf = await pdfjsLib.getDocument({ data: response.data }).promise;
         const pages = [];
         for (let i = 1; i <= pdf.numPages; i++) {
@@ -66,7 +70,7 @@ const SignPage = () => {
         // PDF preview is best-effort — the signing flow doesn't depend on it rendering.
       }
     })();
-  }, [documentId]);
+  }, [documentId, doc, hasSignedCopy]);
 
   useEffect(() => {
     if (pdfPages.length > 0 && canvasRef.current) {
