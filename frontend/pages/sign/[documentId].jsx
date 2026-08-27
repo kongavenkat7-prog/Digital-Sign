@@ -67,8 +67,10 @@ const SignPage = () => {
           pages.push(canvas);
         }
         setPdfPages(pages);
-      } catch {
-        // PDF preview is best-effort — the signing flow doesn't depend on it rendering.
+      } catch (error) {
+        // PDF preview is best-effort — the signing flow doesn't depend on it rendering —
+        // but log the real cause so a blank preview is debuggable instead of silent.
+        console.error('Sign page PDF preview failed:', error);
       }
     })();
   }, [documentId, doc, hasSignedCopy]);
