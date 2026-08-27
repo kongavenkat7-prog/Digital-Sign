@@ -9,7 +9,7 @@ const Badge = ({ tone, withDot = false, children }) => (
 );
 
 export const roleTone = (role) =>
-  role === 'Administrator' ? 'indigo' : role === 'Manager' ? 'green' : role === 'Signer' ? 'amber' : 'gray';
+  role === 'Administrator' ? 'indigo' : role === 'Manager' ? 'green' : role === 'Lead' ? 'amber' : 'gray';
 
 export const statusTone = (status) =>
   status === 'active' || status === 'signed' || status === 'verified' ? 'green' : status === 'inactive' || status === 'declined' ? 'red' : 'amber';

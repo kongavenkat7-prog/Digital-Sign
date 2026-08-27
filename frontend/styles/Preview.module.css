@@ -1,44 +1,31 @@
-.container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 40px 20px;
-}
-
-.container h1 {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1a1a1a;
-  margin-bottom: 40px;
-}
-
 .loading {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 400px;
-  font-size: 18px;
-  color: #666;
+  font-size: 15px;
+  color: var(--sv-text-secondary);
 }
 
 .previewSection {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 40px;
-  margin-top: 30px;
+  gap: 24px;
 }
 
 .pdfViewer {
-  background: white;
-  border-radius: 12px;
+  background: var(--sv-card-bg);
+  border: 1px solid var(--sv-border);
+  border-radius: var(--sv-radius-lg);
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--sv-shadow);
 }
 
 .pdfViewer h2 {
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 600;
-  margin-bottom: 20px;
-  color: #1a1a1a;
+  margin-bottom: 16px;
+  color: var(--sv-text);
 }
 
 .pdfCanvasWrapper {
@@ -99,17 +86,18 @@
 }
 
 .signatureSection {
-  background: white;
-  border-radius: 12px;
+  background: var(--sv-card-bg);
+  border: 1px solid var(--sv-border);
+  border-radius: var(--sv-radius-lg);
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--sv-shadow);
 }
 
 .signatureSection h2 {
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 600;
-  margin-bottom: 20px;
-  color: #1a1a1a;
+  margin-bottom: 16px;
+  color: var(--sv-text);
 }
 
 .signatureTabs {

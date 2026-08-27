@@ -5,7 +5,7 @@ import dashboardStyles from '@/styles/Dashboard.module.css';
 import styles from '@/styles/Roles.module.css';
 import { api } from '@/lib/api';
 
-const ROLES = ['Administrator', 'Manager', 'Signer', 'Viewer'];
+const ROLES = ['Administrator', 'Manager', 'Lead', 'Viewer'];
 
 const RolesPage = () => {
   const [permissions, setPermissions] = useState([]);

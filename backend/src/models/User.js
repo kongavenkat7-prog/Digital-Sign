@@ -1,13 +1,13 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
-const SYSTEM_ROLES = ['Administrator', 'Manager', 'Signer', 'Viewer'];
+const SYSTEM_ROLES = ['Administrator', 'Manager', 'Lead', 'Viewer'];
 
 const userSchema = new Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   title: { type: String, default: '' },
-  role: { type: String, enum: SYSTEM_ROLES, default: 'Signer' },
+  role: { type: String, enum: SYSTEM_ROLES, default: 'Lead' },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   lastActiveAt: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now },
