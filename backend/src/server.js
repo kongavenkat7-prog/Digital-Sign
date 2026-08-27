@@ -1,6 +1,11 @@
+// dotenv must load before anything else is required — utils/s3.js reads
+// process.env at module-load time (to build the S3 client and bucket name),
+// so requiring it before dotenv.config() runs leaves those values undefined
+// for the lifetime of the process, no matter what .env contains.
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
@@ -14,8 +19,6 @@ const rolesRouter = require('./routes/roles');
 const auditLogsRouter = require('./routes/auditLogs');
 const dashboardRouter = require('./routes/dashboard');
 const authRouter = require('./routes/auth');
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
