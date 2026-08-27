@@ -6,6 +6,7 @@ const compression = require('compression');
 const morgan = require('morgan');
 
 const { connectDB } = require('./db');
+const { verifyS3Config } = require('./utils/s3');
 const { requireAuth } = require('./middleware/auth');
 const documentsRouter = require('./routes/documents');
 const usersRouter = require('./routes/users');
@@ -31,6 +32,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 connectDB();
+verifyS3Config();
 
 // ==================== ROUTES ====================
 app.get('/health', (req, res) => {

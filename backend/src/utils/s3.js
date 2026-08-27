@@ -1,12 +1,33 @@
 const AWS = require('aws-sdk');
 
+const s3Region = process.env.AWS_REGION || 'us-east-1';
+
 const s3 = new AWS.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION || 'us-east-1',
+  region: s3Region,
 });
 
 const s3BucketName = process.env.S3_BUCKET_NAME || 'signvault-documents';
+
+/**
+ * Calls AWS directly at startup so config problems (wrong bucket, wrong
+ * region, bad credentials) show up immediately in the server log instead of
+ * only surfacing on the first upload attempt.
+ */
+const verifyS3Config = async () => {
+  const keyPrefix = (process.env.AWS_ACCESS_KEY_ID || '').slice(0, 6) || 'MISSING';
+  console.log(`🪣 S3 config -> region: ${s3Region}, bucket: ${s3BucketName}, accessKeyPrefix: ${keyPrefix}`);
+
+  try {
+    await s3.headBucket({ Bucket: s3BucketName }).promise();
+    console.log(`✅ S3 bucket "${s3BucketName}" is reachable with the current credentials`);
+  } catch (error) {
+    console.error(
+      `❌ S3 check failed for bucket "${s3BucketName}" in region "${s3Region}": [${error.code}] ${error.message}`
+    );
+  }
+};
 
 const uploadToS3 = async (key, body, contentType) => {
   const params = {
@@ -44,4 +65,4 @@ const downloadFromS3 = async (key) => {
   }
 };
 
-module.exports = { uploadToS3, downloadFromS3, s3BucketName, default: s3 };
+module.exports = { uploadToS3, downloadFromS3, verifyS3Config, s3BucketName, default: s3 };
