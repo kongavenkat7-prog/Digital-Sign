@@ -59,8 +59,8 @@ export const api = {
     apiClient.post(`/api/documents/${documentId}/request-changes`, { comments }),
 
   // Signatures
-  placeSignature: (documentId, signatureImage, signatureX, signatureY, pageNumber) =>
-    apiClient.post('/api/signatures/place', { documentId, signatureImage, signatureX, signatureY, pageNumber }),
+  placeSignatures: (documentId, placements) =>
+    apiClient.post('/api/signatures/place', { documentId, placements }),
 
   reviewDocument: (documentId, approved, comments) =>
     apiClient.post(`/api/signatures/${documentId}/review`, { approved, comments }),

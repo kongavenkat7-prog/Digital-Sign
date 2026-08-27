@@ -28,6 +28,8 @@ const SignPage = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [signing, setSigning] = useState(false);
   const [hashes, setHashes] = useState(null);
+  const [downloading, setDownloading] = useState(null);
+  const [previewError, setPreviewError] = useState(null);
 
   const loadDocument = async (id) => {
     try {
@@ -46,28 +48,45 @@ const SignPage = () => {
 
   const hasSignedCopy = Boolean(doc && doc.s3SignedKey);
 
+  const renderPdf = async (arrayBuffer) => {
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const pages = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 1.3 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const context = canvas.getContext('2d');
+      await page.render({ canvasContext: context, viewport }).promise;
+      pages.push(canvas);
+    }
+    return pages;
+  };
+
   useEffect(() => {
     if (!documentId || !doc) return;
     (async () => {
-      try {
-        const response = hasSignedCopy
-          ? await api.previewSignedDocument(documentId)
-          : await api.previewDocument(documentId);
-        const pdf = await pdfjsLib.getDocument({ data: response.data }).promise;
-        const pages = [];
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 1.3 });
-          const canvas = document.createElement('canvas');
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          const context = canvas.getContext('2d');
-          await page.render({ canvasContext: context, viewport }).promise;
-          pages.push(canvas);
+      setPreviewError(null);
+      // Prefer the signed copy once it exists; if rendering it fails for any
+      // reason, fall back to the original rather than leaving the preview
+      // blank, and surface the real error on-screen (not just the console).
+      if (hasSignedCopy) {
+        try {
+          const response = await api.previewSignedDocument(documentId);
+          setPdfPages(await renderPdf(response.data));
+          return;
+        } catch (error) {
+          console.error('Signed PDF preview failed, falling back to original:', error);
+          setPreviewError('Could not render the signed copy — showing the original instead.');
         }
-        setPdfPages(pages);
-      } catch {
-        // PDF preview is best-effort — the signing flow doesn't depend on it rendering.
+      }
+      try {
+        const response = await api.previewDocument(documentId);
+        setPdfPages(await renderPdf(response.data));
+      } catch (error) {
+        console.error('Sign page PDF preview failed:', error);
+        setPreviewError(error.message || 'Failed to load the PDF preview.');
       }
     })();
   }, [documentId, doc, hasSignedCopy]);
@@ -118,6 +137,26 @@ const SignPage = () => {
     }
   };
 
+  const handleDownload = async (type) => {
+    if (!documentId || !doc) return;
+    try {
+      setDownloading(type);
+      const response = type === 'signed' ? await api.downloadSigned(documentId) : await api.downloadOriginal(documentId);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', type === 'signed' ? `${doc.fileName}-signed.pdf` : doc.fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      toast.success(`${type === 'signed' ? 'Signed' : 'Original'} PDF downloaded`);
+    } catch {
+      toast.error('Failed to download PDF');
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   if (loading) {
     return (
       <AppShell active="sign" title="Document Sign" subtitle="Loading document…">
@@ -134,7 +173,7 @@ const SignPage = () => {
     );
   }
 
-  const readyToSign = Boolean(doc.signatureImage) && Boolean(doc.approved);
+  const readyToSign = Boolean(doc.signaturePlacements && doc.signaturePlacements.length > 0) && Boolean(doc.approved);
   const allSigned = doc.signers.length > 0 && doc.signers.every((s) => s.status === 'signed');
 
   return (
@@ -176,7 +215,12 @@ const SignPage = () => {
               )}
             </>
           ) : (
-            <div className={styles.loadingBox}>PDF preview unavailable.</div>
+            <div className={styles.loadingBox}>{previewError || 'PDF preview unavailable.'}</div>
+          )}
+          {pdfPages.length > 0 && previewError && (
+            <p className={styles.notReady} style={{ marginTop: 12 }}>
+              {previewError}
+            </p>
           )}
 
           {!readyToSign && (
@@ -239,6 +283,35 @@ const SignPage = () => {
                 <label>Signed PDF Hash</label>
                 <code>{hashes.signed}</code>
               </div>
+            </div>
+          )}
+
+          {hasSignedCopy && (
+            <div className={styles.hashesSection}>
+              <h4>Download</h4>
+              <div className={styles.btnRow}>
+                <button
+                  className={styles.btnSecondary}
+                  onClick={() => handleDownload('original')}
+                  disabled={downloading !== null}
+                >
+                  {downloading === 'original' ? 'Downloading…' : '⬇ Original'}
+                </button>
+                <button
+                  className={styles.btnSecondary}
+                  onClick={() => handleDownload('signed')}
+                  disabled={downloading !== null}
+                >
+                  {downloading === 'signed' ? 'Downloading…' : '⬇ Signed'}
+                </button>
+              </div>
+              <button
+                className={styles.btnSecondary}
+                style={{ width: '100%', marginTop: 10 }}
+                onClick={() => router.push(`/download/${doc.documentId}`)}
+              >
+                Open Full Download Page →
+              </button>
             </div>
           )}
 

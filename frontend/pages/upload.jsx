@@ -8,17 +8,18 @@ import { useRequireAuth } from '@/lib/auth';
 const UploadPage = () => {
   useRequireAuth();
   const router = useRouter();
+  const REVIEWER_SLOTS = 4;
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [users, setUsers] = useState([]);
-  const [reviewerId, setReviewerId] = useState('');
+  const [reviewerIds, setReviewerIds] = useState(Array(REVIEWER_SLOTS).fill(''));
 
   useEffect(() => {
     api
       .listUsers()
       .then((res) => setUsers(res.data.data))
       .catch(() => {
-        // Assigning a reviewer is optional — a failed lookup just leaves the dropdown empty.
+        toast.error('Failed to load reviewers — refresh to try again');
       });
   }, []);
 
@@ -31,9 +32,30 @@ const UploadPage = () => {
     }
   };
 
+  const selectedReviewers = reviewerIds.filter(Boolean);
+  const reviewersComplete = selectedReviewers.length === REVIEWER_SLOTS;
+  const reviewerEmails = selectedReviewers.map((id) => users.find((u) => u._id === id)?.email?.toLowerCase());
+  const hasDuplicateReviewer = new Set(reviewerEmails).size !== reviewerEmails.length;
+
+  const handleReviewerChange = (slotIndex, value) => {
+    setReviewerIds((prev) => {
+      const next = [...prev];
+      next[slotIndex] = value;
+      return next;
+    });
+  };
+
   const handleUpload = async () => {
     if (!selectedFile) {
       toast.error('Please select a file first');
+      return;
+    }
+    if (!reviewersComplete) {
+      toast.error(`Assign all ${REVIEWER_SLOTS} reviewers before uploading`);
+      return;
+    }
+    if (hasDuplicateReviewer) {
+      toast.error('Each reviewer must have a different email — no duplicates allowed');
       return;
     }
 
@@ -44,10 +66,11 @@ const UploadPage = () => {
       reader.onload = async (e) => {
         const fileData = e.target?.result;
         try {
-          const reviewer = users.find((u) => u._id === reviewerId);
-          const extra = reviewer
-            ? { signers: [{ name: reviewer.name, email: reviewer.email, roleLabel: reviewer.role }] }
-            : undefined;
+          const signers = reviewerIds.map((id) => {
+            const reviewer = users.find((u) => u._id === id);
+            return { name: reviewer.name, email: reviewer.email, roleLabel: reviewer.role };
+          });
+          const extra = { signers };
           const response = await api.uploadDocument(selectedFile.name, fileData, extra);
 
           toast.success('PDF uploaded successfully');
@@ -101,28 +124,32 @@ const UploadPage = () => {
         )}
 
         <div className={styles.reviewerSection}>
-          <label className={styles.reviewerLabel} htmlFor="reviewerSelect">
-            Assign Reviewer / Signer (optional)
-          </label>
-          <select
-            id="reviewerSelect"
-            className={styles.reviewerSelect}
-            value={reviewerId}
-            onChange={(e) => setReviewerId(e.target.value)}
-            disabled={uploading}
-          >
-            <option value="">No one assigned yet</option>
-            {users.map((u) => (
-              <option key={u._id} value={u._id}>
-                {u.name} — {u.role}
-              </option>
-            ))}
-          </select>
+          <label className={styles.reviewerLabel}>Assign Reviewers / Signers (required — 4 distinct people)</label>
+          {reviewerIds.map((value, index) => (
+            <select
+              key={index}
+              className={styles.reviewerSelect}
+              style={{ marginBottom: 10 }}
+              value={value}
+              onChange={(e) => handleReviewerChange(index, e.target.value)}
+              disabled={uploading}
+            >
+              <option value="">Reviewer {index + 1} — select a person</option>
+              {users.map((u) => (
+                <option key={u._id} value={u._id} disabled={reviewerIds.includes(u._id) && value !== u._id}>
+                  {u.name} — {u.role} ({u.email})
+                </option>
+              ))}
+            </select>
+          ))}
+          {hasDuplicateReviewer && (
+            <p className={styles.reviewerError}>Each reviewer must use a different email address.</p>
+          )}
         </div>
 
         <button
           onClick={handleUpload}
-          disabled={!selectedFile || uploading}
+          disabled={!selectedFile || uploading || !reviewersComplete || hasDuplicateReviewer}
           className={styles.uploadButton}
         >
           {uploading ? 'Uploading...' : 'Upload PDF →'}

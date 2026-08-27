@@ -18,6 +18,16 @@ const signerSchema = new Schema(
   { _id: false }
 );
 
+const placementSchema = new Schema(
+  {
+    signatureImage: { type: String, required: true },
+    signatureX: { type: Number, required: true },
+    signatureY: { type: Number, required: true },
+    pageNumber: { type: Number, default: 1 },
+  },
+  { _id: false }
+);
+
 const signatureRecordSchema = new Schema({
   documentId: { type: String, required: true, unique: true, index: true },
   fileName: String,
@@ -25,10 +35,7 @@ const signatureRecordSchema = new Schema({
   requestedBy: { type: String, default: '' },
   dueDate: Date,
   signers: { type: [signerSchema], default: [] },
-  signatureImage: String,
-  signatureX: Number,
-  signatureY: Number,
-  pageNumber: Number,
+  signaturePlacements: { type: [placementSchema], default: [] },
   approved: { type: Boolean, default: false },
   s3OriginalKey: String,
   s3SignedKey: String,

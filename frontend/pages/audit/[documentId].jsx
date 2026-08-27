@@ -1,39 +1,88 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
+import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
+import AppShell from '@/components/AppShell';
 import styles from '@/styles/Audit.module.css';
 import { api } from '@/lib/api';
-import { useRequireAuth } from '@/lib/auth';
+
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+}
 
 const AuditPage = () => {
-  useRequireAuth();
   const router = useRouter();
   const { documentId } = router.query;
+  const canvasRef = useRef(null);
+
+  const [doc, setDoc] = useState(null);
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pdfPages, setPdfPages] = useState([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [openEvents, setOpenEvents] = useState({});
   const [isVerified, setIsVerified] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [completing, setCompleting] = useState(false);
 
-  // Fetch audit records
   useEffect(() => {
     if (!documentId) return;
 
-    const fetchAuditRecords = async () => {
+    const fetchAll = async () => {
       try {
         setLoading(true);
-        const response = await api.getAuditRecords(documentId);
-        setAuditLogs(response.data.data.auditTrail || []);
+        const [docRes, auditRes] = await Promise.all([api.getDocument(documentId), api.getAuditRecords(documentId)]);
+        setDoc(docRes.data.data);
+        setAuditLogs(auditRes.data.data.auditTrail || []);
       } catch (error) {
-        console.error('Audit records fetch error:', error);
-        toast.error('Failed to fetch audit records');
+        console.error('Audit page load error:', error);
+        toast.error('Failed to load audit trail');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchAuditRecords();
+    fetchAll();
   }, [documentId]);
+
+  useEffect(() => {
+    if (!documentId || !doc) return;
+    (async () => {
+      try {
+        const hasSignedCopy = Boolean(doc.s3SignedKey);
+        const response = hasSignedCopy ? await api.previewSignedDocument(documentId) : await api.previewDocument(documentId);
+        const pdf = await pdfjsLib.getDocument({ data: response.data }).promise;
+        const pages = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.3 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const context = canvas.getContext('2d');
+          await page.render({ canvasContext: context, viewport }).promise;
+          pages.push(canvas);
+        }
+        setPdfPages(pages);
+      } catch (error) {
+        console.error('Audit page PDF preview failed:', error);
+      }
+    })();
+  }, [documentId, doc]);
+
+  useEffect(() => {
+    if (pdfPages.length > 0 && canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      const pageCanvas = pdfPages[currentPage];
+      canvasRef.current.width = pageCanvas.width;
+      canvasRef.current.height = pageCanvas.height;
+      ctx.drawImage(pageCanvas, 0, 0);
+    }
+  }, [pdfPages, currentPage]);
+
+  const toggleEvent = (id) => {
+    setOpenEvents((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const handleVerifyAudit = async () => {
     if (!documentId) return;
@@ -67,58 +116,99 @@ const AuditPage = () => {
 
   if (loading) {
     return (
-      <div className={styles.container}>
-        <div className={styles.loading}>Loading audit trail...</div>
-      </div>
+      <AppShell active="audit" title="Audit Trail" subtitle="Loading document…">
+        <div className={styles.loading}>Loading audit trail…</div>
+      </AppShell>
+    );
+  }
+
+  if (!doc) {
+    return (
+      <AppShell active="audit" title="Audit Trail">
+        <div className={styles.loading}>Document not found.</div>
+      </AppShell>
     );
   }
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.badge}>9-11</div>
-        <h1>Audit Trail & Verification</h1>
-      </div>
+    <AppShell active="audit" title={doc.fileName} subtitle="Inspect the document alongside its hash-chained audit history.">
+      <div className={styles.grid}>
+        <div className={styles.docCard}>
+          <div className={styles.docTopRow}>
+            <span>
+              PAGE {currentPage + 1} OF {pdfPages.length || 1}
+            </span>
+            <span>CONFIDENTIAL</span>
+          </div>
 
-      <div className={styles.auditContainer}>
-        <div className={styles.timeline}>
-          <h2>Step 9: Audit Records ({auditLogs.length} events)</h2>
-          {auditLogs.length === 0 ? (
-            <div className={styles.emptyState}>No audit records found</div>
-          ) : (
-            <div className={styles.events}>
-              {auditLogs.map((log, index) => (
-                <div key={log._id} className={styles.event}>
-                  <div className={styles.eventMarker}>
-                    <span className={styles.eventNumber}>{index + 1}</span>
-                  </div>
-                  <div className={styles.eventContent}>
-                    <h3>{log.action}</h3>
-                    <p className={styles.timestamp}>
-                      {new Date(log.timestamp).toLocaleString()}
-                    </p>
-                    {Object.keys(log.details).length > 0 && (
-                      <details className={styles.details}>
-                        <summary>View Details</summary>
-                        <pre>{JSON.stringify(log.details, null, 2)}</pre>
-                      </details>
-                    )}
-                  </div>
+          {pdfPages.length > 0 ? (
+            <>
+              <div className={styles.pdfCanvasWrap}>
+                <canvas ref={canvasRef} />
+              </div>
+              {pdfPages.length > 1 && (
+                <div className={styles.docPagination}>
+                  <button onClick={() => setCurrentPage((p) => Math.max(0, p - 1))} disabled={currentPage === 0}>
+                    ← Previous
+                  </button>
+                  <span>
+                    Page {currentPage + 1} of {pdfPages.length}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(pdfPages.length - 1, p + 1))}
+                    disabled={currentPage === pdfPages.length - 1}
+                  >
+                    Next →
+                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
+          ) : (
+            <div className={styles.loadingBox}>PDF preview unavailable.</div>
           )}
         </div>
 
-        <div className={styles.verificationSection}>
-          <h2>Step 10: Verify Audit Chain</h2>
+        <div className={styles.sidePanel}>
+          <div className={styles.accordionCard}>
+            <h2>Audit Records ({auditLogs.length} events)</h2>
+            {auditLogs.length === 0 ? (
+              <div className={styles.emptyState}>No audit records found</div>
+            ) : (
+              <div className={styles.accordion}>
+                {auditLogs.map((log, index) => {
+                  const isOpen = Boolean(openEvents[log._id]);
+                  const hasDetails = log.details && Object.keys(log.details).length > 0;
+                  return (
+                    <div key={log._id} className={styles.accordionItem}>
+                      <button
+                        type="button"
+                        className={styles.accordionHeader}
+                        onClick={() => hasDetails && toggleEvent(log._id)}
+                        aria-expanded={isOpen}
+                      >
+                        <span className={styles.accordionNumber}>{index + 1}</span>
+                        <span className={styles.accordionTitle}>
+                          <span className={styles.accordionAction}>{log.action}</span>
+                          <span className={styles.accordionTimestamp}>{new Date(log.timestamp).toLocaleString()}</span>
+                        </span>
+                        {hasDetails && <span className={styles.accordionChevron}>{isOpen ? '▾' : '▸'}</span>}
+                      </button>
+                      {isOpen && hasDetails && (
+                        <div className={styles.accordionBody}>
+                          <pre>{JSON.stringify(log.details, null, 2)}</pre>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <div className={styles.verificationCard}>
+            <h2>Verify Audit Chain</h2>
             <p>Verify the integrity of the complete audit trail</p>
-            <button
-              onClick={handleVerifyAudit}
-              disabled={verifying}
-              className={styles.btnPrimary}
-            >
+            <button onClick={handleVerifyAudit} disabled={verifying} className={styles.btnPrimary}>
               {verifying ? 'Verifying...' : '✓ Verify Audit Chain'}
             </button>
             {isVerified && (
@@ -128,23 +218,17 @@ const AuditPage = () => {
               </div>
             )}
           </div>
-        </div>
 
-        <div className={styles.completionSection}>
-          <h2>Step 11: Complete Audit</h2>
           <div className={styles.completionCard}>
+            <h2>Complete Audit</h2>
             <p>All steps completed. Ready to finalize?</p>
-            <button
-              onClick={handleCompleteAudit}
-              disabled={completing || !isVerified}
-              className={styles.btnSuccess}
-            >
+            <button onClick={handleCompleteAudit} disabled={completing || !isVerified} className={styles.btnSuccess}>
               {completing ? 'Completing...' : '✓ Complete Audit & Download'}
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 };
 
