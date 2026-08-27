@@ -28,6 +28,7 @@ const SignPage = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [signing, setSigning] = useState(false);
   const [hashes, setHashes] = useState(null);
+  const [downloading, setDownloading] = useState(null);
 
   const loadDocument = async (id) => {
     try {
@@ -115,6 +116,26 @@ const SignPage = () => {
       toast.success('Changes requested');
     } catch {
       toast.error('Failed to request changes');
+    }
+  };
+
+  const handleDownload = async (type) => {
+    if (!documentId || !doc) return;
+    try {
+      setDownloading(type);
+      const response = type === 'signed' ? await api.downloadSigned(documentId) : await api.downloadOriginal(documentId);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', type === 'signed' ? `${doc.fileName}-signed.pdf` : doc.fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      toast.success(`${type === 'signed' ? 'Signed' : 'Original'} PDF downloaded`);
+    } catch {
+      toast.error('Failed to download PDF');
+    } finally {
+      setDownloading(null);
     }
   };
 
@@ -238,6 +259,28 @@ const SignPage = () => {
               <div className={styles.hashRow}>
                 <label>Signed PDF Hash</label>
                 <code>{hashes.signed}</code>
+              </div>
+            </div>
+          )}
+
+          {hasSignedCopy && (
+            <div className={styles.hashesSection}>
+              <h4>Download</h4>
+              <div className={styles.btnRow}>
+                <button
+                  className={styles.btnSecondary}
+                  onClick={() => handleDownload('original')}
+                  disabled={downloading !== null}
+                >
+                  {downloading === 'original' ? 'Downloading…' : '⬇ Original'}
+                </button>
+                <button
+                  className={styles.btnSecondary}
+                  onClick={() => handleDownload('signed')}
+                  disabled={downloading !== null}
+                >
+                  {downloading === 'signed' ? 'Downloading…' : '⬇ Signed'}
+                </button>
               </div>
             </div>
           )}
