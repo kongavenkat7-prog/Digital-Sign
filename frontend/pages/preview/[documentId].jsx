@@ -26,7 +26,7 @@ const PreviewPage = () => {
   const [signatureImage, setSignatureImage] = useState(null);
   const [typedSignature, setTypedSignature] = useState('');
   const [isDrawing, setIsDrawing] = useState(false);
-  const [placement, setPlacement] = useState(null);
+  const [placements, setPlacements] = useState([]);
   const [placing, setPlacing] = useState(false);
 
   const canvasRef = useRef(null);
@@ -84,11 +84,6 @@ const PreviewPage = () => {
       ctx.drawImage(pageCanvas, 0, 0);
     }
   }, [pdfPages, currentPage]);
-
-  // Changing page invalidates any chosen placement — it was for a specific page.
-  useEffect(() => {
-    setPlacement(null);
-  }, [currentPage]);
 
   // Initialize signature canvas
   useEffect(() => {
@@ -175,16 +170,23 @@ const PreviewPage = () => {
     }
     setSignatureImage(null);
     setTypedSignature('');
-    setPlacement(null);
     if (signatureInputRef.current) {
       signatureInputRef.current.value = '';
     }
   };
 
-  // Clicking the rendered PDF page picks where the signature will land. The
+  const removePlacement = (index) => {
+    setPlacements((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllPlacements = () => setPlacements([]);
+
+  // Clicking the rendered PDF page adds another signature placement. The
   // click is captured in on-screen pixels, then converted back into PDF
   // point coordinates (dividing out RENDER_SCALE) so the backend stamps the
   // signature exactly where the user pointed rather than a hardcoded spot.
+  // Placements accumulate (rather than overwrite) so the same signature can
+  // be stamped in several spots, even across different pages.
   const handleCanvasClick = (e) => {
     if (!signatureImage) {
       toast.error('Create a signature below first, then click the document to place it');
@@ -200,31 +202,39 @@ const PreviewPage = () => {
     const pageWidthPt = canvas.width / RENDER_SCALE;
     const pageHeightPt = canvas.height / RENDER_SCALE;
 
-    setPlacement({
-      page: currentPage + 1,
-      xPt: xRatio * pageWidthPt,
-      yFromTopPt: yRatio * pageHeightPt,
-      xRatio,
-      yRatio,
-    });
+    setPlacements((prev) => [
+      ...prev,
+      {
+        page: currentPage + 1,
+        xPt: xRatio * pageWidthPt,
+        yFromTopPt: yRatio * pageHeightPt,
+        xRatio,
+        yRatio,
+        image: signatureImage,
+      },
+    ]);
   };
 
   const handlePlaceSignature = async () => {
     if (!documentId) return;
-    if (!signatureImage) {
-      toast.error('Please create a signature first');
-      return;
-    }
-    if (!placement) {
-      toast.error('Click on the document to choose where the signature goes');
+    if (placements.length === 0) {
+      toast.error('Click on the document at least once to place your signature');
       return;
     }
 
     try {
       setPlacing(true);
-      await api.placeSignature(documentId, signatureImage, placement.xPt, placement.yFromTopPt, placement.page);
+      await api.placeSignatures(
+        documentId,
+        placements.map((p) => ({
+          signatureImage: p.image,
+          signatureX: p.xPt,
+          signatureY: p.yFromTopPt,
+          pageNumber: p.page,
+        }))
+      );
 
-      toast.success('Signature placed successfully');
+      toast.success(`${placements.length} signature placement${placements.length > 1 ? 's' : ''} saved`);
       router.push(`/review/${documentId}`);
     } catch (error) {
       console.error('Signature placement error:', error);
@@ -251,9 +261,9 @@ const PreviewPage = () => {
       <div className={styles.previewSection}>
         <div className={styles.pdfViewer}>
           <h2>PDF Preview</h2>
-          {signatureImage && !placement && (
+          {signatureImage && (
             <p className={styles.hint} style={{ color: 'var(--sv-primary)', fontWeight: 600 }}>
-              Click anywhere on the document below to place your signature
+              Click anywhere on the document to add a signature — click multiple spots (and pages) to place it more than once
             </p>
           )}
           <div className={styles.pdfCanvasWrapper}>
@@ -263,17 +273,20 @@ const PreviewPage = () => {
               onClick={handleCanvasClick}
               style={{ cursor: signatureImage ? 'crosshair' : 'default' }}
             />
-            {placement && placement.page === currentPage + 1 && signatureImage && (
-              <img
-                src={signatureImage}
-                alt="Signature placement preview"
-                className={styles.placementMarker}
-                style={{
-                  left: `${placement.xRatio * 100}%`,
-                  top: `${placement.yRatio * 100}%`,
-                }}
-              />
-            )}
+            {placements
+              .filter((p) => p.page === currentPage + 1)
+              .map((p, i) => (
+                <img
+                  key={i}
+                  src={p.image}
+                  alt="Signature placement preview"
+                  className={styles.placementMarker}
+                  style={{
+                    left: `${p.xRatio * 100}%`,
+                    top: `${p.yRatio * 100}%`,
+                  }}
+                />
+              ))}
           </div>
           {pdfPages.length > 1 && (
             <div className={styles.pagination}>
@@ -292,6 +305,27 @@ const PreviewPage = () => {
               >
                 Next →
               </button>
+            </div>
+          )}
+
+          {placements.length > 0 && (
+            <div className={styles.placementsList}>
+              <h3>
+                Placed Signatures ({placements.length})
+                <button type="button" onClick={clearAllPlacements} className={styles.clearAllBtn}>
+                  Clear all
+                </button>
+              </h3>
+              <ul>
+                {placements.map((p, i) => (
+                  <li key={i}>
+                    <span>Page {p.page}</span>
+                    <button type="button" onClick={() => removePlacement(i)} title="Remove this placement">
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
@@ -388,8 +422,12 @@ const PreviewPage = () => {
               <button onClick={clearSignature} className={styles.btnSecondary}>
                 Clear
               </button>
-              <button onClick={handlePlaceSignature} className={styles.btnPrimary} disabled={!placement || placing}>
-                {placing ? 'Placing…' : placement ? 'Place Signature →' : 'Click document to place'}
+              <button onClick={handlePlaceSignature} className={styles.btnPrimary} disabled={placements.length === 0 || placing}>
+                {placing
+                  ? 'Placing…'
+                  : placements.length > 0
+                  ? `Place ${placements.length} Signature${placements.length > 1 ? 's' : ''} →`
+                  : 'Click document to place'}
               </button>
             </div>
           )}

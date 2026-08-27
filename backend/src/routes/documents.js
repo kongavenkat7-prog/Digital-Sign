@@ -36,6 +36,17 @@ router.post('/documents/upload', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields: fileName, fileData' });
     }
 
+    if (!Array.isArray(signers) || signers.length === 0) {
+      return res.status(400).json({ error: 'At least one reviewer/signer must be assigned' });
+    }
+    if (signers.some((s) => !s.email)) {
+      return res.status(400).json({ error: 'Every assigned reviewer must have an email' });
+    }
+    const emails = signers.map((s) => s.email.trim().toLowerCase());
+    if (new Set(emails).size !== emails.length) {
+      return res.status(400).json({ error: 'Each assigned reviewer must have a distinct email' });
+    }
+
     const documentId = uuidv4();
     const s3Key = `originals/${documentId}/${fileName}`;
 
@@ -167,6 +178,13 @@ router.post('/documents/:documentId/signers', async (req, res) => {
     if (!Array.isArray(signers) || signers.length === 0) {
       return res.status(400).json({ error: 'signers must be a non-empty array' });
     }
+    if (signers.some((s) => !s.email)) {
+      return res.status(400).json({ error: 'Every assigned reviewer must have an email' });
+    }
+    const emails = signers.map((s) => s.email.trim().toLowerCase());
+    if (new Set(emails).size !== emails.length) {
+      return res.status(400).json({ error: 'Each assigned reviewer must have a distinct email' });
+    }
 
     const signatureRecord = await SignatureRecord.findOne({ documentId });
     if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
@@ -186,28 +204,34 @@ router.post('/documents/:documentId/signers', async (req, res) => {
   }
 });
 
-// Place Signature
+// Place Signature(s) — replaces the full set of placements for this document,
+// so a signer can stamp the same signature into several spots (and pages).
 router.post('/signatures/place', async (req, res) => {
   try {
-    const { documentId, signatureImage, signatureX, signatureY, pageNumber } = req.body;
+    const { documentId, placements } = req.body;
 
-    if (!documentId || !signatureImage || signatureX === undefined || signatureY === undefined) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!documentId || !Array.isArray(placements) || placements.length === 0) {
+      return res.status(400).json({ error: 'Missing required fields: documentId, placements' });
+    }
+    if (placements.some((p) => !p.signatureImage || p.signatureX === undefined || p.signatureY === undefined)) {
+      return res.status(400).json({ error: 'Every placement needs signatureImage, signatureX, signatureY' });
     }
 
     const signatureRecord = await SignatureRecord.findOne({ documentId });
     if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
 
-    signatureRecord.signatureImage = signatureImage;
-    signatureRecord.signatureX = signatureX;
-    signatureRecord.signatureY = signatureY;
-    signatureRecord.pageNumber = pageNumber || 1;
+    signatureRecord.signaturePlacements = placements.map((p) => ({
+      signatureImage: p.signatureImage,
+      signatureX: p.signatureX,
+      signatureY: p.signatureY,
+      pageNumber: p.pageNumber || 1,
+    }));
     await signatureRecord.save();
 
     const auditLogId = await createAuditLog(
       documentId,
       'Signature Placed',
-      { signatureX, signatureY, pageNumber },
+      { placementCount: placements.length, pages: [...new Set(placements.map((p) => p.pageNumber || 1))] },
       req,
       { userName: CURRENT_USER.name, documentName: signatureRecord.fileName }
     );
@@ -216,8 +240,8 @@ router.post('/signatures/place', async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Signature placed successfully',
-      data: { documentId, signatureX, signatureY, pageNumber },
+      message: 'Signature(s) placed successfully',
+      data: { documentId, placements: signatureRecord.signaturePlacements },
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to place signature', message: error.message });
@@ -262,7 +286,7 @@ router.post('/signatures/:documentId/sign', async (req, res) => {
     const { signerName } = req.body;
 
     const signatureRecord = await SignatureRecord.findOne({ documentId });
-    if (!signatureRecord || !signatureRecord.signatureImage) {
+    if (!signatureRecord || signatureRecord.signaturePlacements.length === 0) {
       return res.status(400).json({ error: 'Document not ready for signing' });
     }
     if (!signatureRecord.approved) {
@@ -276,10 +300,7 @@ router.post('/signatures/:documentId/sign', async (req, res) => {
     const originalPdfBuffer = await downloadFromS3(signatureRecord.s3OriginalKey);
     const signedAt = new Date();
     const signedPdfBuffer = await stampSignature(originalPdfBuffer, {
-      signatureImage: signatureRecord.signatureImage,
-      signatureX: signatureRecord.signatureX,
-      signatureY: signatureRecord.signatureY,
-      pageNumber: signatureRecord.pageNumber,
+      placements: signatureRecord.signaturePlacements,
       signerName: effectiveSignerName,
       signedAt,
     });
