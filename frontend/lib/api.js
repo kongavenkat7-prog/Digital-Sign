@@ -44,6 +44,9 @@ export const api = {
   previewDocument: (documentId) =>
     apiClient.get(`/api/documents/${documentId}/preview`, { responseType: 'arraybuffer' }),
 
+  previewSignedDocument: (documentId) =>
+    apiClient.get(`/api/documents/${documentId}/preview-signed`, { responseType: 'arraybuffer' }),
+
   getDocumentStatus: (documentId) => apiClient.get(`/api/documents/${documentId}/status`),
 
   setSigners: (documentId, signers) =>

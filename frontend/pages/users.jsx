@@ -6,7 +6,7 @@ import styles from '@/styles/Users.module.css';
 import dashboardStyles from '@/styles/Dashboard.module.css';
 import { api } from '@/lib/api';
 
-const ROLES = ['Administrator', 'Manager', 'Signer', 'Viewer'];
+const ROLES = ['Administrator', 'Manager', 'Lead', 'Viewer'];
 
 const initials = (name) =>
   name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase();
@@ -30,7 +30,7 @@ const UsersPage = () => {
   const [roleFilter, setRoleFilter] = useState('All Roles');
   const [statusFilter, setStatusFilter] = useState('All');
   const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', title: '', role: 'Signer' });
+  const [form, setForm] = useState({ name: '', email: '', title: '', role: 'Lead' });
 
   const load = async () => {
     setLoading(true);
@@ -63,7 +63,7 @@ const UsersPage = () => {
       await api.createUser(form);
       toast.success('User added');
       setModalOpen(false);
-      setForm({ name: '', email: '', title: '', role: 'Signer' });
+      setForm({ name: '', email: '', title: '', role: 'Lead' });
       load();
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to add user');

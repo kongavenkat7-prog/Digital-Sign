@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import styles from '@/styles/Upload.module.css';
@@ -10,6 +10,17 @@ const UploadPage = () => {
   const router = useRouter();
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [reviewerId, setReviewerId] = useState('');
+
+  useEffect(() => {
+    api
+      .listUsers()
+      .then((res) => setUsers(res.data.data))
+      .catch(() => {
+        // Assigning a reviewer is optional — a failed lookup just leaves the dropdown empty.
+      });
+  }, []);
 
   const handleFileSelect = (event) => {
     const file = event.target.files?.[0];
@@ -33,7 +44,11 @@ const UploadPage = () => {
       reader.onload = async (e) => {
         const fileData = e.target?.result;
         try {
-          const response = await api.uploadDocument(selectedFile.name, fileData);
+          const reviewer = users.find((u) => u._id === reviewerId);
+          const extra = reviewer
+            ? { signers: [{ name: reviewer.name, email: reviewer.email, roleLabel: reviewer.role }] }
+            : undefined;
+          const response = await api.uploadDocument(selectedFile.name, fileData, extra);
 
           toast.success('PDF uploaded successfully');
           router.push(`/preview/${response.data.data.documentId}`);
@@ -84,6 +99,26 @@ const UploadPage = () => {
             <p className={styles.maxSize}>Maximum file size: 25MB</p>
           </div>
         )}
+
+        <div className={styles.reviewerSection}>
+          <label className={styles.reviewerLabel} htmlFor="reviewerSelect">
+            Assign Reviewer / Signer (optional)
+          </label>
+          <select
+            id="reviewerSelect"
+            className={styles.reviewerSelect}
+            value={reviewerId}
+            onChange={(e) => setReviewerId(e.target.value)}
+            disabled={uploading}
+          >
+            <option value="">No one assigned yet</option>
+            {users.map((u) => (
+              <option key={u._id} value={u._id}>
+                {u.name} — {u.role}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <button
           onClick={handleUpload}

@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import styles from '@/styles/Preview.module.css';
 import { api } from '@/lib/api';
 import { useRequireAuth } from '@/lib/auth';
+import AppShell from '@/components/AppShell';
 
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -235,16 +236,18 @@ const PreviewPage = () => {
 
   if (loading) {
     return (
-      <div className={styles.container}>
+      <AppShell active="sign" title="Preview & Sign" subtitle="Loading document…">
         <div className={styles.loading}>Loading PDF...</div>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className={styles.container}>
-      <h1>Step 2: Preview & Create Signature</h1>
-
+    <AppShell
+      active="sign"
+      title="Preview & Sign"
+      subtitle="Draw, type, or upload your signature, then click the document to place it."
+    >
       <div className={styles.previewSection}>
         <div className={styles.pdfViewer}>
           <h2>PDF Preview</h2>
@@ -392,7 +395,7 @@ const PreviewPage = () => {
           )}
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 };
 

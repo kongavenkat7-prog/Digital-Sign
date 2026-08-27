@@ -6,7 +6,7 @@ signvault/
 │   ├── src/
 │   │   ├── db.js                     # MongoDB connection
 │   │   ├── models/
-│   │   │   ├── User.js               # System users (Administrator/Manager/Signer/Viewer)
+│   │   │   ├── User.js               # System users (Administrator/Manager/Lead/Viewer)
 │   │   │   ├── RolePermission.js     # Role x permission matrix
 │   │   │   ├── SignatureRecord.js    # Document + signer pipeline
 │   │   │   └── AuditLog.js           # Hash-chained audit events

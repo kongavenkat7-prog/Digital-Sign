@@ -37,7 +37,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: `role must be one of: ${SYSTEM_ROLES.join(', ')}` });
     }
 
-    const user = new User({ name, email, title, role: role || 'Signer' });
+    const user = new User({ name, email, title, role: role || 'Lead' });
     await user.save();
 
     await createAuditLog(

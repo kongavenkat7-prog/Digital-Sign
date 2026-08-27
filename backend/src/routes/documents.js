@@ -116,6 +116,25 @@ router.get('/documents/:documentId/preview', async (req, res) => {
   }
 });
 
+// Preview the signed copy (with the embedded signature) once it exists
+router.get('/documents/:documentId/preview-signed', async (req, res) => {
+  try {
+    const { documentId } = req.params;
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord || !signatureRecord.s3SignedKey) {
+      return res.status(400).json({ error: 'No signed copy exists for this document yet' });
+    }
+
+    const pdfBuffer = await downloadFromS3(signatureRecord.s3SignedKey);
+
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Length', pdfBuffer.length.toString());
+    res.send(pdfBuffer);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to preview signed PDF', message: error.message });
+  }
+});
+
 // Get single document (full detail incl. signer pipeline)
 router.get('/documents/:documentId', async (req, res) => {
   try {
