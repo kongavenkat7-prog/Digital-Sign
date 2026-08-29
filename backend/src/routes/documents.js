@@ -6,6 +6,7 @@ const { calculateSHA256 } = require('../utils/crypto');
 const { uploadToS3, downloadFromS3 } = require('../utils/s3');
 const { stampSignature } = require('../utils/pdfSign');
 const { createAuditLog, verifyAuditChain } = require('../utils/audit');
+const { sendReviewerAssignedEmail } = require('../utils/mailer');
 const { CURRENT_USER } = require('./auth');
 
 const router = Router();
@@ -89,6 +90,20 @@ router.post('/documents/upload', async (req, res) => {
 
     signatureRecord.auditTrail.push(auditLogId);
     await signatureRecord.save();
+
+    // Best-effort: a reviewer/signer being assigned shouldn't fail the upload
+    // if SMTP isn't configured or the send fails.
+    await Promise.all(
+      signatureRecord.signers.map((signer) =>
+        sendReviewerAssignedEmail({
+          to: signer.email,
+          reviewerName: signer.name,
+          roleLabel: signer.roleLabel,
+          documentName: fileName,
+          documentId,
+        }).catch((error) => console.error('Reviewer-assignment email failed:', error))
+      )
+    );
 
     res.status(201).json({
       success: true,
@@ -197,6 +212,18 @@ router.post('/documents/:documentId/signers', async (req, res) => {
       status: index === 0 ? 'pending' : 'awaiting',
     }));
     await signatureRecord.save();
+
+    await Promise.all(
+      signatureRecord.signers.map((signer) =>
+        sendReviewerAssignedEmail({
+          to: signer.email,
+          reviewerName: signer.name,
+          roleLabel: signer.roleLabel,
+          documentName: signatureRecord.fileName,
+          documentId,
+        }).catch((error) => console.error('Reviewer-assignment email failed:', error))
+      )
+    );
 
     res.status(200).json({ success: true, data: signatureRecord });
   } catch (error) {
