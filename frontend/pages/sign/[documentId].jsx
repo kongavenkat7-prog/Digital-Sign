@@ -289,29 +289,40 @@ const SignPage = () => {
           {hasSignedCopy && (
             <div className={styles.hashesSection}>
               <h4>Download</h4>
-              <div className={styles.btnRow}>
-                <button
-                  className={styles.btnSecondary}
-                  onClick={() => handleDownload('original')}
-                  disabled={downloading !== null}
-                >
-                  {downloading === 'original' ? 'Downloading…' : '⬇ Original'}
-                </button>
-                <button
-                  className={styles.btnSecondary}
-                  onClick={() => handleDownload('signed')}
-                  disabled={downloading !== null}
-                >
-                  {downloading === 'signed' ? 'Downloading…' : '⬇ Signed'}
-                </button>
-              </div>
-              <button
-                className={styles.btnSecondary}
-                style={{ width: '100%', marginTop: 10 }}
-                onClick={() => router.push(`/download/${doc.documentId}`)}
-              >
-                Open Full Download Page →
-              </button>
+              {doc.status === 'verified' ? (
+                <>
+                  <div className={styles.btnRow}>
+                    <button
+                      className={styles.btnSecondary}
+                      onClick={() => handleDownload('original')}
+                      disabled={downloading !== null}
+                    >
+                      {downloading === 'original' ? 'Downloading…' : '⬇ Original'}
+                    </button>
+                    <button
+                      className={styles.btnSecondary}
+                      onClick={() => handleDownload('signed')}
+                      disabled={downloading !== null}
+                    >
+                      {downloading === 'signed' ? 'Downloading…' : '⬇ Signed'}
+                    </button>
+                  </div>
+                  <button
+                    className={styles.btnSecondary}
+                    style={{ width: '100%', marginTop: 10 }}
+                    onClick={() => router.push(`/download/${doc.documentId}`)}
+                  >
+                    Open Full Download Page →
+                  </button>
+                </>
+              ) : (
+                <p className={styles.notReady}>
+                  Downloads unlock once the audit for this document is completed.{' '}
+                  <a onClick={() => router.push(`/audit/${doc.documentId}`)} style={{ cursor: 'pointer' }}>
+                    Go to Audit Trail
+                  </a>
+                </p>
+              )}
             </div>
           )}
 

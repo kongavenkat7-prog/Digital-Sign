@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import styles from '@/styles/Review.module.css';
@@ -9,9 +9,20 @@ const ReviewPage = () => {
   useRequireAuth();
   const router = useRouter();
   const { documentId } = router.query;
+  const [doc, setDoc] = useState(null);
   const [approved, setApproved] = useState(false);
   const [comments, setComments] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!documentId) return;
+    api
+      .getDocument(documentId)
+      .then((res) => setDoc(res.data.data))
+      .catch(() => toast.error('Failed to load document'));
+  }, [documentId]);
+
+  const reviewer = doc?.signers?.[0];
 
   const handleReview = async () => {
     if (!documentId) return;
@@ -33,6 +44,18 @@ const ReviewPage = () => {
       <h1>Step 5: Review & Confirm</h1>
 
       <div className={styles.reviewCard}>
+        {reviewer && (
+          <div className={styles.reviewerSection}>
+            <h2>Assigned Reviewer</h2>
+            <div className={styles.reviewerCard}>
+              <div className={styles.reviewerName}>{reviewer.name}</div>
+              <div className={styles.reviewerMeta}>
+                {reviewer.roleLabel} · {reviewer.email}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className={styles.checklistSection}>
           <h2>Pre-Signature Checklist</h2>
           <div className={styles.checklist}>
@@ -63,8 +86,16 @@ const ReviewPage = () => {
               checked={approved}
               onChange={(e) => setApproved(e.target.checked)}
             />
-            <span>I approve this document for signing</span>
+            <span>
+              {reviewer
+                ? `I, verifying as the assigned reviewer (${reviewer.name}), approve this document for signing`
+                : 'I approve this document for signing'}
+            </span>
           </label>
+          <p className={styles.approvalHint}>
+            Without approval here, the audit for this document will stay marked "Approval Pending" and it cannot be
+            signed, completed, or downloaded.
+          </p>
         </div>
 
         <div className={styles.commentsSection}>

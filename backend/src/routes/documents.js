@@ -503,6 +503,11 @@ router.post('/documents/:documentId/complete-audit', async (req, res) => {
     const signatureRecord = await SignatureRecord.findOne({ documentId });
     if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
 
+    if (!signatureRecord.approved) {
+      return res.status(400).json({
+        error: 'Approval pending — the assigned reviewer must approve this document before its audit can be completed',
+      });
+    }
     if (signatureRecord.status !== 'signed') {
       return res.status(400).json({ error: 'Document must be fully signed before its audit can be completed' });
     }
@@ -535,8 +540,11 @@ router.get('/documents/:documentId/download-signed', async (req, res) => {
   try {
     const { documentId } = req.params;
     const signatureRecord = await SignatureRecord.findOne({ documentId });
-    if (!signatureRecord || !signatureRecord.s3SignedKey || !['signed', 'verified'].includes(signatureRecord.status)) {
+    if (!signatureRecord || !signatureRecord.s3SignedKey) {
       return res.status(400).json({ error: 'Document not ready for download' });
+    }
+    if (signatureRecord.status !== 'verified') {
+      return res.status(400).json({ error: 'The audit must be completed before the signed document can be downloaded' });
     }
 
     const signedPdfBuffer = await downloadFromS3(signatureRecord.s3SignedKey);
@@ -564,6 +572,9 @@ router.get('/documents/:documentId/download-original', async (req, res) => {
     const { documentId } = req.params;
     const signatureRecord = await SignatureRecord.findOne({ documentId });
     if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
+    if (signatureRecord.status !== 'verified') {
+      return res.status(400).json({ error: 'The audit must be completed before this document can be downloaded' });
+    }
 
     const originalPdfBuffer = await downloadFromS3(signatureRecord.s3OriginalKey);
 

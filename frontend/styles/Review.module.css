@@ -19,12 +19,14 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+.reviewerSection,
 .checklistSection,
 .approvalSection,
 .commentsSection {
   margin-bottom: 30px;
 }
 
+.reviewerSection h2,
 .checklistSection h2,
 .approvalSection h2,
 .commentsSection h2 {
@@ -32,6 +34,31 @@
   font-weight: 600;
   color: #1a1a1a;
   margin-bottom: 16px;
+}
+
+.reviewerCard {
+  padding: 14px 16px;
+  background: var(--sv-primary-light, #eef0ff);
+  border: 1px solid var(--sv-primary, #5865f2);
+  border-radius: 8px;
+}
+
+.reviewerName {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.reviewerMeta {
+  font-size: 13px;
+  color: #555;
+  margin-top: 2px;
+}
+
+.approvalHint {
+  font-size: 12.5px;
+  color: #888;
+  margin: 10px 0 0 0;
 }
 
 .checklist {

@@ -73,7 +73,28 @@ const DownloadPage = () => {
         <h1>Download Signed Document</h1>
       </div>
 
-      {documentStatus && (
+      {documentStatus && documentStatus.status !== 'verified' && (
+        <div className={styles.contentContainer}>
+          <div className={styles.pendingCard}>
+            <div className={styles.checkmark}>⏳</div>
+            <h2>{!documentStatus.approved ? 'Approval Pending' : 'Audit Not Yet Completed'}</h2>
+            <p>
+              {!documentStatus.approved
+                ? "The assigned reviewer hasn't approved this document yet — it can't be downloaded until they do."
+                : "This document must finish its audit before it can be downloaded."}
+            </p>
+            <button
+              onClick={() => router.push(`/audit/${documentId}`)}
+              className={styles.btnPrimary}
+              style={{ marginTop: 16 }}
+            >
+              Go to Audit Trail →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {documentStatus && documentStatus.status === 'verified' && (
         <div className={styles.contentContainer}>
           <div className={styles.successCard}>
             <div className={styles.checkmark}>✓</div>
