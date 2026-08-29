@@ -235,6 +235,8 @@ const AuditPage = () => {
                 ? 'Waiting on reviewer approval before this can be finalized.'
                 : doc.status !== 'signed'
                 ? 'Waiting on all signatures before this can be finalized.'
+                : !isVerified
+                ? 'Click "Verify Audit Chain" above first.'
                 : 'All steps completed. Ready to finalize?'}
             </p>
             <button onClick={handleCompleteAudit} disabled={completing || !readyToComplete} className={styles.btnSuccess}>
@@ -244,6 +246,8 @@ const AuditPage = () => {
                 ? 'Approval Pending'
                 : doc.status !== 'signed'
                 ? 'Awaiting Signatures'
+                : !isVerified
+                ? 'Verify Chain First ↑'
                 : '✓ Complete Audit & Download'}
             </button>
           </div>
