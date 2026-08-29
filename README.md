@@ -114,7 +114,13 @@ on a 401.
   real, independently-authenticated accounts.
 - **Environment variables**: `backend/.env` (`MONGODB_URI`, `AWS_*`,
   `S3_BUCKET_NAME`, `FRONTEND_URL`, `JWT_SECRET`, `ADMIN_EMAIL`,
-  `ADMIN_PASSWORD`) and `frontend/.env.local` (`NEXT_PUBLIC_API_URL`).
+  `ADMIN_PASSWORD`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`,
+  `MAIL_FROM`, `APP_URL`) and `frontend/.env.local` (`NEXT_PUBLIC_API_URL`).
+- **Reviewer-assignment email**: uploading a document (or replacing its
+  signer pipeline) emails the assigned reviewer a link to it. Without
+  `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS` set, the send is skipped and logged to
+  the backend console instead of failing the request — set those (e.g. a
+  Gmail App Password) to actually deliver mail.
 
 ## License
 
