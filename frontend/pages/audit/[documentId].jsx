@@ -130,8 +130,17 @@ const AuditPage = () => {
     );
   }
 
+  const approvalPending = !doc.approved;
+  const readyToComplete = isVerified && !approvalPending && doc.status === 'signed';
+
   return (
     <AppShell active="audit" title={doc.fileName} subtitle="Inspect the document alongside its hash-chained audit history.">
+      {approvalPending && (
+        <div className={styles.approvalBanner}>
+          ⏳ Approval Pending — the assigned reviewer hasn't approved this document yet. It can't be signed, its
+          audit can't be completed, and it can't be downloaded until they do.
+        </div>
+      )}
       <div className={styles.grid}>
         <div className={styles.docCard}>
           <div className={styles.docTopRow}>
@@ -221,9 +230,25 @@ const AuditPage = () => {
 
           <div className={styles.completionCard}>
             <h2>Complete Audit</h2>
-            <p>All steps completed. Ready to finalize?</p>
-            <button onClick={handleCompleteAudit} disabled={completing || !isVerified} className={styles.btnSuccess}>
-              {completing ? 'Completing...' : '✓ Complete Audit & Download'}
+            <p>
+              {approvalPending
+                ? 'Waiting on reviewer approval before this can be finalized.'
+                : doc.status !== 'signed'
+                ? 'Waiting on all signatures before this can be finalized.'
+                : !isVerified
+                ? 'Click "Verify Audit Chain" above first.'
+                : 'All steps completed. Ready to finalize?'}
+            </p>
+            <button onClick={handleCompleteAudit} disabled={completing || !readyToComplete} className={styles.btnSuccess}>
+              {completing
+                ? 'Completing...'
+                : approvalPending
+                ? 'Approval Pending'
+                : doc.status !== 'signed'
+                ? 'Awaiting Signatures'
+                : !isVerified
+                ? 'Verify Chain First ↑'
+                : '✓ Complete Audit & Download'}
             </button>
           </div>
         </div>
