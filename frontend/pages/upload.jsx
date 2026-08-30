@@ -98,6 +98,24 @@ const UploadPage = () => {
     setRecipients((prev) => prev.filter((r) => r.clientId !== clientId));
   };
 
+  // Live duplicate detection for the Recipients step — one recipient (by
+  // email) can only appear once, and one role can only be assigned once per
+  // envelope, so both are flagged inline as soon as they collide rather than
+  // only when the user clicks Continue.
+  const duplicateEmailIds = new Set();
+  const duplicateRoleIds = new Set();
+  {
+    const byEmail = {};
+    const byRole = {};
+    recipients.forEach((r) => {
+      const email = r.email.trim().toLowerCase();
+      if (email) (byEmail[email] ||= []).push(r.clientId);
+      if (r.roleLabel) (byRole[r.roleLabel] ||= []).push(r.clientId);
+    });
+    Object.values(byEmail).forEach((ids) => ids.length > 1 && ids.forEach((id) => duplicateEmailIds.add(id)));
+    Object.values(byRole).forEach((ids) => ids.length > 1 && ids.forEach((id) => duplicateRoleIds.add(id)));
+  }
+
   const goToStep3 = async () => {
     if (recipients.length === 0) {
       toast.error('Add at least one recipient');
@@ -107,14 +125,12 @@ const UploadPage = () => {
       toast.error('Every recipient needs a full legal name and email');
       return;
     }
-    const emails = recipients.map((r) => r.email.trim().toLowerCase());
-    if (new Set(emails).size !== emails.length) {
-      toast.error('Each recipient must have a distinct email');
+    if (duplicateEmailIds.size > 0) {
+      toast.error('One user, one role: the same email can\'t be added as a recipient more than once.');
       return;
     }
-    const roles = recipients.map((r) => r.roleLabel);
-    if (new Set(roles).size !== roles.length) {
-      toast.error('Each recipient must have a different role — two recipients can\'t share the same role');
+    if (duplicateRoleIds.size > 0) {
+      toast.error('Each role can only be assigned to one recipient — two recipients can\'t share the same role.');
       return;
     }
     if (recipients.some((r) => r.identityVerification === 'account_password' && !r.accessPassword.trim())) {
@@ -321,15 +337,30 @@ const UploadPage = () => {
                 </div>
                 <div>
                   <label className={styles.label}>Email</label>
-                  <input className={styles.input} type="email" value={r.email} onChange={(e) => updateRecipient(r.clientId, { email: e.target.value })} />
+                  <input
+                    className={`${styles.input} ${duplicateEmailIds.has(r.clientId) ? styles.inputError : ''}`}
+                    type="email"
+                    value={r.email}
+                    onChange={(e) => updateRecipient(r.clientId, { email: e.target.value })}
+                  />
+                  {duplicateEmailIds.has(r.clientId) && (
+                    <p className={styles.fieldError}>This email is already used by another recipient — one user, one role.</p>
+                  )}
                 </div>
                 <div>
                   <label className={styles.label}>Role</label>
-                  <select className={styles.input} value={r.roleLabel} onChange={(e) => updateRecipient(r.clientId, { roleLabel: e.target.value })}>
+                  <select
+                    className={`${styles.input} ${duplicateRoleIds.has(r.clientId) ? styles.inputError : ''}`}
+                    value={r.roleLabel}
+                    onChange={(e) => updateRecipient(r.clientId, { roleLabel: e.target.value })}
+                  >
                     {ROLE_OPTIONS.map((role) => (
                       <option key={role} value={role}>{role}</option>
                     ))}
                   </select>
+                  {duplicateRoleIds.has(r.clientId) && (
+                    <p className={styles.fieldError}>This role is already assigned to another recipient.</p>
+                  )}
                 </div>
                 <div>
                   <label className={styles.label}>Identity verification</label>
@@ -378,7 +409,13 @@ const UploadPage = () => {
 
           <div className={styles.btnRow}>
             <button className={styles.btnGhost} onClick={() => setStep(1)}>Back</button>
-            <button className={styles.btnPrimary} onClick={goToStep3}>Continue</button>
+            <button
+              className={styles.btnPrimary}
+              onClick={goToStep3}
+              disabled={duplicateEmailIds.size > 0 || duplicateRoleIds.size > 0}
+            >
+              Continue
+            </button>
           </div>
         </div>
       )}
