@@ -148,6 +148,13 @@ router.post('/documents/envelope', async (req, res) => {
     if (new Set(emails).size !== emails.length) {
       return res.status(400).json({ error: 'Each recipient must have a distinct email' });
     }
+    const roleLabels = recipients.map((r) => r.roleLabel || '');
+    if (new Set(roleLabels).size !== roleLabels.length) {
+      return res.status(400).json({ error: 'Each recipient must have a different role' });
+    }
+    if (recipients.some((r) => r.identityVerification === 'account_password' && !r.accessPassword)) {
+      return res.status(400).json({ error: 'An access password is required for recipients using Account login + password' });
+    }
 
     const documentId = uuidv4();
     const s3Key = `originals/${documentId}/${fileName}`;
@@ -167,7 +174,8 @@ router.post('/documents/envelope', async (req, res) => {
       order: r.order ?? index,
       status: !isSend ? 'awaiting' : isSequential ? (index === 0 ? 'pending' : 'awaiting') : 'pending',
       token: crypto.randomBytes(24).toString('hex'),
-      identityVerification: 'email_otp',
+      identityVerification: r.identityVerification === 'account_password' ? 'account_password' : 'email_otp',
+      accessPasswordHash: r.identityVerification === 'account_password' ? calculateSHA256(r.accessPassword) : undefined,
     }));
 
     const fieldDocs = (Array.isArray(fields) ? fields : []).map((f) => ({

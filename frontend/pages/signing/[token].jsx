@@ -165,6 +165,7 @@ const SigningPage = () => {
   const [otpCode, setOtpCode] = useState('');
   const [otpVerified, setOtpVerified] = useState(false);
   const [resendInMs, setResendInMs] = useState(0);
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [signResult, setSignResult] = useState(null);
   const [downloading, setDownloading] = useState(null);
@@ -285,6 +286,19 @@ const SigningPage = () => {
     }
   };
 
+  const handleVerifyPassword = async () => {
+    try {
+      setBusy(true);
+      await api.verifyPassword(token, password);
+      setOtpVerified(true);
+      toast.success('Identity confirmed for this signature');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Incorrect password');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleSign = async () => {
     try {
       setBusy(true);
@@ -321,6 +335,7 @@ const SigningPage = () => {
   };
 
   if (stage === 'done' && signResult) {
+    const signedSigField = info.fields.find((f) => f.type === 'signature' && values[f.fieldId]);
     return (
       <div className={styles.centered}>
         <div className={styles.doneCard}>
@@ -330,6 +345,21 @@ const SigningPage = () => {
             Your signature, its meaning, your identity and the exact timestamp have been written to the tamper-evident
             audit trail. Once every recipient has signed, the sealed PDF with its audit certificate page is generated.
           </p>
+
+          {signedSigField && (
+            <div className={styles.appearanceBox} style={{ textAlign: 'left', marginTop: 16 }}>
+              <div className={styles.appearanceLabel}>Your signature</div>
+              <img src={values[signedSigField.fieldId]} alt="Your signature" className={styles.appearanceImg} />
+              <div className={styles.appearanceMeta}>
+                Digitally signed by {info.signer.name}
+                <br />
+                Date: {new Date().toISOString()}
+                <br />
+                Signed hash: {signResult.signedPdfHash?.slice(0, 24)}…
+              </div>
+            </div>
+          )}
+
           <div className={styles.downloadsLabel}>DOWNLOADS</div>
           <button className={styles.btnPrimaryFull} disabled={downloading !== null} onClick={() => handleDownload('with-audit')}>
             {downloading === 'with-audit' ? 'Downloading…' : `Signed ${info.title} with audit page`}
@@ -438,39 +468,66 @@ const SigningPage = () => {
               <label className={styles.label}>Reason (optional)</label>
               <textarea className={styles.textarea} value={reason} onChange={(e) => setReason(e.target.value)} />
 
-              <div className={styles.otpBox}>
-                <div className={styles.otpHeader}>
-                  <strong>One-time passcode</strong>
-                  {otpVerified && <span className={styles.verifiedBadge}>✓ Verified</span>}
-                </div>
-                <p className={styles.hint}>
-                  Sent to {info.signer.email}. This code is the second identification component before your signature is applied.
-                </p>
-                {!otpSent ? (
-                  <button className={styles.btnSecondaryFull} disabled={busy} onClick={handleRequestOtp}>
-                    Send passcode
-                  </button>
-                ) : (
+              {info.signer.identityVerification === 'account_password' ? (
+                <div className={styles.otpBox}>
+                  <div className={styles.otpHeader}>
+                    <strong>Account login</strong>
+                    {otpVerified && <span className={styles.verifiedBadge}>✓ Verified</span>}
+                  </div>
+                  <p className={styles.hint}>
+                    Sign in as {info.signer.email} with the access password shared with you for this envelope.
+                  </p>
+                  <input type="email" className={styles.input} value={info.signer.email} disabled />
                   <div className={styles.otpRow}>
                     <input
+                      type="password"
                       className={styles.input}
                       style={{ marginBottom: 0 }}
-                      placeholder="123456"
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       disabled={otpVerified}
                     />
-                    <button className={styles.btnSecondary} disabled={busy || otpVerified || !otpCode} onClick={handleVerifyOtp}>
+                    <button className={styles.btnSecondary} disabled={busy || otpVerified || !password} onClick={handleVerifyPassword}>
                       {otpVerified ? 'Verified' : 'Verify'}
                     </button>
                   </div>
-                )}
-                {otpSent && !otpVerified && (
-                  <button className={styles.linkBtn} disabled={resendInMs > 0 || busy} onClick={handleRequestOtp}>
-                    {resendInMs > 0 ? `Resend in ${Math.ceil(resendInMs / 1000)}s` : 'Resend code'}
-                  </button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className={styles.otpBox}>
+                  <div className={styles.otpHeader}>
+                    <strong>One-time passcode</strong>
+                    {otpVerified && <span className={styles.verifiedBadge}>✓ Verified</span>}
+                  </div>
+                  <p className={styles.hint}>
+                    Sent to {info.signer.email}. This code is the second identification component before your signature is applied.
+                  </p>
+                  {!otpSent ? (
+                    <button className={styles.btnSecondaryFull} disabled={busy} onClick={handleRequestOtp}>
+                      Send passcode
+                    </button>
+                  ) : (
+                    <div className={styles.otpRow}>
+                      <input
+                        className={styles.input}
+                        style={{ marginBottom: 0 }}
+                        placeholder="123456"
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value)}
+                        disabled={otpVerified}
+                      />
+                      <button className={styles.btnSecondary} disabled={busy || otpVerified || !otpCode} onClick={handleVerifyOtp}>
+                        {otpVerified ? 'Verified' : 'Verify'}
+                      </button>
+                    </div>
+                  )}
+                  {otpSent && !otpVerified && (
+                    <button className={styles.linkBtn} disabled={resendInMs > 0 || busy} onClick={handleRequestOtp}>
+                      {resendInMs > 0 ? `Resend in ${Math.ceil(resendInMs / 1000)}s` : 'Resend code'}
+                    </button>
+                  )}
+                </div>
+              )}
 
               <div className={styles.btnRow}>
                 <button className={styles.btnGhost} onClick={() => setStage('fields')}>Back</button>

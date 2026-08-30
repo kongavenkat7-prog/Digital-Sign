@@ -20,11 +20,15 @@ const signerSchema = new Schema(
     // Magic-link + email-OTP identity verification for the public,
     // no-login signing page (routes/signing.js).
     token: { type: String, index: true },
-    identityVerification: { type: String, enum: ['email_otp'], default: 'email_otp' },
+    identityVerification: { type: String, enum: ['email_otp', 'account_password'], default: 'email_otp' },
     otpCode: String,
     otpExpiresAt: Date,
+    // Set true once the recipient has proven their identity — via OTP or,
+    // for identityVerification: 'account_password', the access password —
+    // gating the final Sign step regardless of which method was used.
     otpVerified: { type: Boolean, default: false },
     otpLastSentAt: Date,
+    accessPasswordHash: String,
   },
   { _id: false }
 );

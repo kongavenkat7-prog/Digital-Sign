@@ -18,6 +18,7 @@ export const ACTION_TYPES = [
   'Signing Link Opened',
   'OTP Sent',
   'OTP Verified',
+  'Password Verified',
   'Recipient Signed',
   'Envelope Completed',
 ];

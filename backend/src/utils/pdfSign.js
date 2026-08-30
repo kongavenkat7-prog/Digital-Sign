@@ -1,4 +1,56 @@
-const { PDFDocument, StandardFonts } = require('pdf-lib');
+const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
+
+// Shared visual language for the generated audit documents (certificate page
+// + audit pack), so both read as one branded report instead of plain text.
+const COLORS = {
+  brand: rgb(0.345, 0.396, 0.949), // SignVault indigo
+  brandDark: rgb(0.235, 0.271, 0.816),
+  success: rgb(0.086, 0.639, 0.290),
+  danger: rgb(0.863, 0.149, 0.149),
+  text: rgb(0.11, 0.11, 0.13),
+  textMuted: rgb(0.42, 0.44, 0.5),
+  cardBg: rgb(0.965, 0.967, 0.98),
+  border: rgb(0.87, 0.88, 0.92),
+  white: rgb(1, 1, 1),
+};
+
+/** Full-width brand header band; returns the y coordinate to start content below it. */
+const drawHeaderBand = (page, { title, subtitle }, pageWidth, pageHeight, boldFont, font) => {
+  const bandHeight = 72;
+  page.drawRectangle({ x: 0, y: pageHeight - bandHeight, width: pageWidth, height: bandHeight, color: COLORS.brand });
+  page.drawText('SignVault', { x: 50, y: pageHeight - 30, size: 11, font: boldFont, color: COLORS.white });
+  page.drawText(title, { x: 50, y: pageHeight - 52, size: 18, font: boldFont, color: COLORS.white });
+  if (subtitle) {
+    page.drawText(subtitle, { x: 50, y: pageHeight - 66, size: 9, font, color: rgb(0.88, 0.89, 0.98) });
+  }
+  return pageHeight - bandHeight - 26;
+};
+
+/** Section heading with a small brand accent bar. */
+const drawSectionHeading = (page, text, x, y, boldFont) => {
+  page.drawRectangle({ x, y: y - 1, width: 3, height: 13, color: COLORS.brand });
+  page.drawText(text, { x: x + 10, y, size: 12.5, font: boldFont, color: COLORS.text });
+};
+
+/** Small filled status pill (VALID / NOT YET VALID, etc). Returns the pill's rendered width. */
+const drawStatusPill = (page, { x, y, label, tone, font }) => {
+  const paddingX = 8;
+  const textWidth = font.widthOfTextAtSize(label, 9);
+  const pillWidth = textWidth + paddingX * 2;
+  page.drawRectangle({ x, y: y - 3, width: pillWidth, height: 15, color: tone });
+  page.drawText(label, { x: x + paddingX, y, size: 9, font, color: COLORS.white });
+  return pillWidth;
+};
+
+const drawFooter = (page, pageNumber, font) => {
+  page.drawText(`SignVault · Tamper-evident audit record · Page ${pageNumber}`, {
+    x: 50,
+    y: 24,
+    size: 7.5,
+    font,
+    color: COLORS.textMuted,
+  });
+};
 
 const decodeImage = (dataUrl) => {
   const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
@@ -163,42 +215,64 @@ const appendAuditCertificatePage = async (pdfBuffer, { envelopeId, documentName,
   const pdfDoc = await PDFDocument.load(pdfBuffer);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const page = pdfDoc.addPage([612, 792]);
-  let y = 740;
+  const monoFont = await pdfDoc.embedFont(StandardFonts.Courier);
+  const [pageWidth, pageHeight] = [612, 792];
+  const margin = 50;
+  const page = pdfDoc.addPage([pageWidth, pageHeight]);
 
-  page.drawText('Audit Certificate', { x: 50, y, size: 20, font: boldFont });
-  y -= 30;
-  page.drawText(`Document: ${documentName}`, { x: 50, y, size: 11, font });
-  y -= 16;
-  page.drawText(`Envelope ID: ${envelopeId}`, { x: 50, y, size: 11, font });
-  y -= 24;
+  let y = drawHeaderBand(page, { title: 'Audit Certificate', subtitle: documentName }, pageWidth, pageHeight, boldFont, font);
+  page.drawText(`Envelope ID: ${envelopeId}`, { x: margin, y, size: 8.5, font: monoFont, color: COLORS.textMuted });
+  y -= 28;
 
-  page.drawText('Signers', { x: 50, y, size: 13, font: boldFont });
-  y -= 18;
+  drawSectionHeading(page, 'Signers', margin, y, boldFont);
+  y -= 20;
   for (const s of signers || []) {
-    if (y < 90) break;
-    page.drawText(`${s.name} <${s.email}> — ${s.roleLabel || ''}`, { x: 50, y, size: 10, font });
-    y -= 14;
-    const statusLine = `  Status: ${s.status}${s.signedAt ? ` · Signed ${new Date(s.signedAt).toISOString()}` : ''}`;
-    page.drawText(statusLine, { x: 50, y, size: 9, font });
-    y -= 12;
+    if (y < 110) break;
+    page.drawText(`${s.name}  ·  ${s.email}${s.roleLabel ? `  ·  ${s.roleLabel}` : ''}`, {
+      x: margin + 6,
+      y,
+      size: 10,
+      font: boldFont,
+      color: COLORS.text,
+    });
+    y -= 15;
+    const pillTone = s.status === 'signed' ? COLORS.success : s.status === 'declined' ? COLORS.danger : COLORS.textMuted;
+    const pillWidth = drawStatusPill(page, { x: margin + 6, y, label: s.status.toUpperCase(), tone: pillTone, font: boldFont });
+    if (s.signedAt) {
+      page.drawText(`Signed ${new Date(s.signedAt).toISOString()}`, {
+        x: margin + 6 + pillWidth + 8,
+        y,
+        size: 8.5,
+        font,
+        color: COLORS.textMuted,
+      });
+    }
+    y -= 16;
     if (s.ipAddress) {
-      page.drawText(`  IP: ${s.ipAddress}`, { x: 50, y, size: 9, font });
+      page.drawText(`IP ${s.ipAddress}`, { x: margin + 6, y, size: 8, font: monoFont, color: COLORS.textMuted });
       y -= 14;
     }
+    page.drawLine({
+      start: { x: margin, y: y + 4 },
+      end: { x: pageWidth - margin, y: y + 4 },
+      thickness: 0.5,
+      color: COLORS.border,
+    });
+    y -= 12;
   }
 
-  y -= 10;
-  if (y > 60) {
-    page.drawText('Hash Chain', { x: 50, y, size: 13, font: boldFont });
-    y -= 18;
-    for (const line of (hashChainSummary || []).slice(0, 20)) {
-      if (y < 50) break;
-      page.drawText(line, { x: 50, y, size: 8, font });
-      y -= 11;
+  y -= 12;
+  if (y > 70) {
+    drawSectionHeading(page, 'Hash Chain', margin, y, boldFont);
+    y -= 20;
+    for (const line of (hashChainSummary || []).slice(0, 16)) {
+      if (y < 45) break;
+      page.drawText(line, { x: margin + 6, y, size: 7.5, font: monoFont, color: COLORS.textMuted });
+      y -= 12;
     }
   }
 
+  drawFooter(page, 1, font);
   return Buffer.from(await pdfDoc.save());
 };
 
@@ -212,45 +286,79 @@ const buildAuditPackPdf = async ({ documentId, title, originalHash, signedHash, 
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const monoFont = await pdfDoc.embedFont(StandardFonts.Courier);
   const margin = 50;
-  const pageSize = [612, 792];
+  const [pageWidth, pageHeight] = [612, 792];
 
-  let page = pdfDoc.addPage(pageSize);
-  let y = pageSize[1] - margin;
+  let pageNumber = 1;
+  let page = pdfDoc.addPage([pageWidth, pageHeight]);
+  let y = drawHeaderBand(page, { title: 'SignVault Audit Pack', subtitle: title }, pageWidth, pageHeight, boldFont, font);
+  drawFooter(page, pageNumber, font);
 
-  const ensureRoom = (needed) => {
-    if (y - needed < margin) {
-      page = pdfDoc.addPage(pageSize);
-      y = pageSize[1] - margin;
-    }
+  const newPage = () => {
+    pageNumber += 1;
+    page = pdfDoc.addPage([pageWidth, pageHeight]);
+    y = pageHeight - margin;
+    drawFooter(page, pageNumber, font);
   };
 
-  const writeLine = (text, { size = 10, bold = false, gap = 14 } = {}) => {
+  const ensureRoom = (needed) => {
+    if (y - needed < margin + 20) newPage();
+  };
+
+  const writeLine = (text, { size = 10, bold = false, mono = false, gap = 14, color = COLORS.text } = {}) => {
     ensureRoom(gap);
-    page.drawText(text, { x: margin, y, size, font: bold ? boldFont : font });
+    page.drawText(text, { x: margin, y, size, font: mono ? monoFont : bold ? boldFont : font, color });
     y -= gap;
   };
 
-  writeLine('SignVault Audit Pack', { size: 20, bold: true, gap: 28 });
-  writeLine(`Document: ${title}`, { size: 11 });
-  writeLine(`Envelope ID: ${documentId}`, { size: 11 });
-  writeLine(`Original hash: ${originalHash || '—'}`, { size: 9 });
-  writeLine(`Signed hash: ${signedHash || '—'}`, { size: 9 });
-  writeLine(`Hash chain: ${chainValid ? 'VALID' : 'NOT YET VALID'}`, { size: 11, bold: true, gap: 22 });
+  writeLine(`Envelope ID: ${documentId}`, { size: 8.5, mono: true, color: COLORS.textMuted, gap: 16 });
+  writeLine(`Original hash: ${originalHash || '—'}`, { size: 8, mono: true, color: COLORS.textMuted, gap: 12 });
+  writeLine(`Signed hash: ${signedHash || '—'}`, { size: 8, mono: true, color: COLORS.textMuted, gap: 20 });
 
-  writeLine('Signers', { size: 13, bold: true, gap: 18 });
+  ensureRoom(20);
+  drawStatusPill(page, {
+    x: margin,
+    y,
+    label: chainValid ? 'HASH CHAIN VALID' : 'HASH CHAIN NOT YET VALID',
+    tone: chainValid ? COLORS.success : COLORS.textMuted,
+    font: boldFont,
+  });
+  y -= 30;
+
+  drawSectionHeading(page, 'Signers', margin, y, boldFont);
+  y -= 20;
   for (const s of signers || []) {
-    writeLine(`${s.name} <${s.email}> — ${s.roleLabel || ''}`, { size: 10 });
-    writeLine(`  Status: ${s.status}${s.signedAt ? ` · Signed ${new Date(s.signedAt).toISOString()}` : ''}`, { size: 9, gap: 12 });
-    if (s.ipAddress) writeLine(`  IP: ${s.ipAddress}`, { size: 9, gap: 12 });
+    ensureRoom(42);
+    writeLine(`${s.name}  ·  ${s.email}${s.roleLabel ? `  ·  ${s.roleLabel}` : ''}`, { size: 10, bold: true, gap: 15 });
+    const pillTone = s.status === 'signed' ? COLORS.success : s.status === 'declined' ? COLORS.danger : COLORS.textMuted;
+    const pillWidth = drawStatusPill(page, { x: margin, y, label: s.status.toUpperCase(), tone: pillTone, font: boldFont });
+    if (s.signedAt) {
+      page.drawText(`Signed ${new Date(s.signedAt).toISOString()}`, {
+        x: margin + pillWidth + 8,
+        y,
+        size: 8.5,
+        font,
+        color: COLORS.textMuted,
+      });
+    }
+    y -= 16;
+    if (s.ipAddress) writeLine(`IP ${s.ipAddress}`, { size: 8, mono: true, color: COLORS.textMuted, gap: 14 });
+    page.drawLine({ start: { x: margin, y: y + 4 }, end: { x: pageWidth - margin, y: y + 4 }, thickness: 0.5, color: COLORS.border });
+    y -= 12;
   }
 
   y -= 8;
-  writeLine('Audit Trail', { size: 13, bold: true, gap: 18 });
+  ensureRoom(20);
+  drawSectionHeading(page, 'Audit Trail', margin, y, boldFont);
+  y -= 20;
   (events || []).forEach((log, index) => {
-    writeLine(`${index + 1}. ${log.action} — ${new Date(log.timestamp).toISOString()}`, { size: 9, gap: 12 });
-    if (log.userName) writeLine(`   By: ${log.userName}${log.ipAddress ? ` · IP ${log.ipAddress}` : ''}`, { size: 8, gap: 11 });
-    writeLine(`   hash ${log.hash}`, { size: 7.5, gap: 13 });
+    ensureRoom(38);
+    writeLine(`${index + 1}. ${log.action}  —  ${new Date(log.timestamp).toISOString()}`, { size: 9.5, bold: true, gap: 13 });
+    if (log.userName) {
+      writeLine(`By: ${log.userName}${log.ipAddress ? `  ·  IP ${log.ipAddress}` : ''}`, { size: 8, color: COLORS.textMuted, gap: 12 });
+    }
+    writeLine(`hash ${log.hash}`, { size: 7, mono: true, color: COLORS.textMuted, gap: 14 });
   });
 
   return Buffer.from(await pdfDoc.save());
