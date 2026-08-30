@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const { SignatureRecord } = require('../models/SignatureRecord');
 const { calculateSHA256 } = require('../utils/crypto');
 const { uploadToS3, downloadFromS3 } = require('../utils/s3');
-const { stampFields, appendAuditCertificatePage } = require('../utils/pdfSign');
+const { stampFields, appendAuditCertificatePage, buildAuditPackPdf } = require('../utils/pdfSign');
 const { createAuditLog, verifyAuditChain } = require('../utils/audit');
 const { sendOtpEmail, sendSignatureRequestEmail, sendCompletionEmail } = require('../utils/mailer');
 const { AuditLog } = require('../models/AuditLog');
@@ -205,8 +205,18 @@ router.post('/signing/:token/sign', async (req, res) => {
       if (next) next.status = 'pending';
     }
 
+    const signersByEmail = {};
+    for (const s of signatureRecord.signers) {
+      signersByEmail[s.email.toLowerCase()] = {
+        name: s.name,
+        signedAt: s.signedAt,
+        ipAddress: s.ipAddress,
+        userAgent: s.userAgent,
+      };
+    }
+
     const originalPdfBuffer = await downloadFromS3(signatureRecord.s3OriginalKey);
-    const signedPdfBuffer = await stampFields(originalPdfBuffer, signatureRecord.fields);
+    const signedPdfBuffer = await stampFields(originalPdfBuffer, signatureRecord.fields, signersByEmail);
     const signedPdfHash = calculateSHA256(signedPdfBuffer);
     const signedS3Key = `signed/${signatureRecord.documentId}/${signatureRecord.fileName}`;
     await uploadToS3(signedS3Key, signedPdfBuffer, 'application/pdf');
@@ -326,25 +336,18 @@ router.get('/signing/:token/download', async (req, res) => {
 
     if (variant === 'audit-pack') {
       const auditLogs = await AuditLog.find({ documentId: signatureRecord.documentId }).sort({ timestamp: 1 });
-      const pack = {
+      const pdfBuffer = await buildAuditPackPdf({
         documentId: signatureRecord.documentId,
         title: signatureRecord.title || signatureRecord.fileName,
         originalHash: signatureRecord.pdfHash,
         signedHash: signatureRecord.signedPdfHash,
         chainValid: auditLogs.length > 0 && verifyAuditChain(auditLogs),
-        signers: signatureRecord.signers.map((s) => ({
-          name: s.name,
-          email: s.email,
-          roleLabel: s.roleLabel,
-          status: s.status,
-          signedAt: s.signedAt,
-          ipAddress: s.ipAddress,
-        })),
+        signers: signatureRecord.signers,
         events: auditLogs,
-      };
-      res.set('Content-Type', 'application/json');
-      res.set('Content-Disposition', `attachment; filename="${signatureRecord.documentId}-audit-pack.json"`);
-      return res.send(JSON.stringify(pack, null, 2));
+      });
+      res.set('Content-Type', 'application/pdf');
+      res.set('Content-Disposition', `attachment; filename="${signatureRecord.documentId}-audit-pack.pdf"`);
+      return res.send(pdfBuffer);
     }
 
     // default: 'without-audit'

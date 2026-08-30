@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import styles from '@/styles/Envelope.module.css';
 import { api } from '@/lib/api';
 import { useRequireAuth } from '@/lib/auth';
+import AppShell from '@/components/AppShell';
 
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -247,12 +248,7 @@ const UploadPage = () => {
   };
 
   return (
-    <div className={styles.page}>
-      <div className={styles.header}>
-        <h1>New envelope</h1>
-        <p>Step {step} of 3</p>
-      </div>
-
+    <AppShell active="sign" title="New envelope" subtitle={`Step ${step} of 3`}>
       <div className={styles.tabs}>
         <div className={`${styles.tab} ${step === 1 ? styles.tabActive : ''}`}>1. Document</div>
         <div className={`${styles.tab} ${step === 2 ? styles.tabActive : ''}`}>2. Recipients</div>
@@ -500,7 +496,7 @@ const UploadPage = () => {
           </div>
         </div>
       )}
-    </div>
+    </AppShell>
   );
 };
 

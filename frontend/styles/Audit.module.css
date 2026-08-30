@@ -8,14 +8,27 @@
 }
 
 .approvalBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   background: var(--sv-warning-light, #fef3c7);
   border: 1px solid #fde68a;
   color: #92400e;
   border-radius: var(--sv-radius, 8px);
-  padding: 12px 16px;
+  padding: 14px 16px;
   margin-bottom: 16px;
   font-size: 13.5px;
-  font-weight: 600;
+  line-height: 1.5;
+}
+
+.approvalBanner strong {
+  font-weight: 700;
+}
+
+.approvalIcon {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .grid {
@@ -102,8 +115,7 @@
 }
 
 .accordionCard,
-.verificationCard,
-.completionCard {
+.finalizeCard {
   background: var(--sv-card-bg);
   border: 1px solid var(--sv-border);
   border-radius: var(--sv-radius-lg);
@@ -112,8 +124,7 @@
 }
 
 .accordionCard h2,
-.verificationCard h2,
-.completionCard h2 {
+.finalizeCard h2 {
   font-size: 15px;
   font-weight: 600;
   margin: 0 0 14px 0;
@@ -140,6 +151,7 @@
   border-radius: 8px;
   overflow: hidden;
   background: #fff;
+  transition: border-color 0.15s;
 }
 
 .accordionHeader {
@@ -152,20 +164,24 @@
   padding: 12px 14px;
   cursor: pointer;
   text-align: left;
+  transition: background 0.15s;
+}
+
+.accordionHeader:hover {
+  background: #f1f3f9;
 }
 
 .accordionNumber {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
-  background: var(--sv-primary);
-  color: #fff;
+  background: rgba(88, 101, 242, 0.1);
+  color: var(--sv-primary);
   border-radius: 50%;
-  font-size: 11.5px;
-  font-weight: 700;
+  font-size: 14px;
 }
 
 .accordionTitle {
@@ -208,11 +224,60 @@
   color: #333;
 }
 
-.verificationCard p,
-.completionCard p {
+.finalizeStep {
+  display: flex;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--sv-border);
+}
+
+.finalizeStep:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.finalizeStepNum {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #f1f3f9;
   color: var(--sv-text-secondary);
-  margin: 0 0 14px 0;
-  font-size: 13px;
+  font-size: 12.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.finalizeStepDone {
+  background: var(--sv-success-light);
+  color: var(--sv-success);
+}
+
+.finalizeStepReady {
+  background: rgba(88, 101, 242, 0.12);
+  color: var(--sv-primary);
+}
+
+.finalizeStepBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.finalizeStepTitle {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--sv-text);
+  margin-bottom: 4px;
+}
+
+.finalizeStepBody p {
+  color: var(--sv-text-secondary);
+  margin: 0 0 10px 0;
+  font-size: 12.5px;
+  line-height: 1.4;
 }
 
 .btnPrimary,
@@ -254,25 +319,3 @@
   cursor: not-allowed;
 }
 
-.verified {
-  margin-top: 14px;
-  padding: 16px;
-  background: var(--sv-success-light);
-  border: 1px solid #bbf7d0;
-  border-radius: 8px;
-  text-align: center;
-}
-
-.checkmark {
-  display: block;
-  font-size: 26px;
-  color: var(--sv-success);
-  margin-bottom: 8px;
-}
-
-.verified p {
-  color: #15803d;
-  margin: 0;
-  font-weight: 600;
-  font-size: 13px;
-}

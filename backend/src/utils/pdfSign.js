@@ -68,13 +68,35 @@ const stampSignature = async (originalPdfBuffer, options) => {
   return Buffer.from(signedBytes);
 };
 
+/** Best-effort "Chrome on macOS" style label from a raw User-Agent string. */
+const describeUserAgent = (ua) => {
+  if (!ua) return '';
+  let browser = 'Unknown browser';
+  if (/edg\//i.test(ua)) browser = 'Edge';
+  else if (/chrome\//i.test(ua)) browser = 'Chrome';
+  else if (/firefox\//i.test(ua)) browser = 'Firefox';
+  else if (/safari\//i.test(ua)) browser = 'Safari';
+
+  let os = 'Unknown OS';
+  if (/windows/i.test(ua)) os = 'Windows';
+  else if (/mac os x/i.test(ua)) os = 'macOS';
+  else if (/android/i.test(ua)) os = 'Android';
+  else if (/iphone|ipad/i.test(ua)) os = 'iOS';
+  else if (/linux/i.test(ua)) os = 'Linux';
+
+  return `${browser} on ${os}`;
+};
+
 /**
  * Envelope flow: renders every filled field (any type) onto the PDF using
  * percentage-based coordinates captured by the Fields editor — leftPct/topPct
  * are measured from the page's top-left, matching how the browser reports
  * drag position, so they're converted into pdf-lib's bottom-left origin here.
+ * signersByEmail supplies each recipient's name/timestamp/IP/user-agent so a
+ * signature or initials field gets a caption underneath it, the same way the
+ * reference product stamps "Digitally signed by X ... Signed from IP | UA".
  */
-const stampFields = async (pdfBuffer, fields) => {
+const stampFields = async (pdfBuffer, fields, signersByEmail = {}) => {
   const pdfDoc = await PDFDocument.load(pdfBuffer);
   const pages = pdfDoc.getPages();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -102,6 +124,21 @@ const stampFields = async (pdfBuffer, fields) => {
           width: image.width * scale,
           height: image.height * scale,
         });
+
+        const signer = signersByEmail[field.assignedToEmail];
+        if (signer) {
+          const captionSize = 6.5;
+          let captionY = y - captionSize - 2;
+          const lines = [
+            `Digitally signed by ${signer.name}`,
+            signer.signedAt ? `Date: ${new Date(signer.signedAt).toISOString()}` : null,
+            [signer.ipAddress ? `IP ${signer.ipAddress}` : null, describeUserAgent(signer.userAgent)].filter(Boolean).join(' | ') || null,
+          ].filter(Boolean);
+          for (const line of lines) {
+            page.drawText(line, { x, y: captionY, size: captionSize, font });
+            captionY -= captionSize + 2;
+          }
+        }
       } else if (field.type === 'checkbox') {
         if (field.value === 'true') {
           page.drawText('X', { x: x + 2, y: y + 2, size: Math.min(boxHeight * 0.8, 14), font });
@@ -165,4 +202,58 @@ const appendAuditCertificatePage = async (pdfBuffer, { envelopeId, documentName,
   return Buffer.from(await pdfDoc.save());
 };
 
-module.exports = { stampSignature, stampFields, appendAuditCertificatePage };
+/**
+ * Standalone "audit pack" PDF: every audit-trail event plus signer summary
+ * and hash chain, for the recipient's post-sign download screen — a full
+ * paginated report rather than the single certificate page appended to the
+ * signed document itself.
+ */
+const buildAuditPackPdf = async ({ documentId, title, originalHash, signedHash, chainValid, signers, events }) => {
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const margin = 50;
+  const pageSize = [612, 792];
+
+  let page = pdfDoc.addPage(pageSize);
+  let y = pageSize[1] - margin;
+
+  const ensureRoom = (needed) => {
+    if (y - needed < margin) {
+      page = pdfDoc.addPage(pageSize);
+      y = pageSize[1] - margin;
+    }
+  };
+
+  const writeLine = (text, { size = 10, bold = false, gap = 14 } = {}) => {
+    ensureRoom(gap);
+    page.drawText(text, { x: margin, y, size, font: bold ? boldFont : font });
+    y -= gap;
+  };
+
+  writeLine('SignVault Audit Pack', { size: 20, bold: true, gap: 28 });
+  writeLine(`Document: ${title}`, { size: 11 });
+  writeLine(`Envelope ID: ${documentId}`, { size: 11 });
+  writeLine(`Original hash: ${originalHash || '—'}`, { size: 9 });
+  writeLine(`Signed hash: ${signedHash || '—'}`, { size: 9 });
+  writeLine(`Hash chain: ${chainValid ? 'VALID' : 'NOT YET VALID'}`, { size: 11, bold: true, gap: 22 });
+
+  writeLine('Signers', { size: 13, bold: true, gap: 18 });
+  for (const s of signers || []) {
+    writeLine(`${s.name} <${s.email}> — ${s.roleLabel || ''}`, { size: 10 });
+    writeLine(`  Status: ${s.status}${s.signedAt ? ` · Signed ${new Date(s.signedAt).toISOString()}` : ''}`, { size: 9, gap: 12 });
+    if (s.ipAddress) writeLine(`  IP: ${s.ipAddress}`, { size: 9, gap: 12 });
+  }
+
+  y -= 8;
+  writeLine('Audit Trail', { size: 13, bold: true, gap: 18 });
+  (events || []).forEach((log, index) => {
+    writeLine(`${index + 1}. ${log.action} — ${new Date(log.timestamp).toISOString()}`, { size: 9, gap: 12 });
+    if (log.userName) writeLine(`   By: ${log.userName}${log.ipAddress ? ` · IP ${log.ipAddress}` : ''}`, { size: 8, gap: 11 });
+    writeLine(`   hash ${log.hash}`, { size: 7.5, gap: 13 });
+  });
+
+  return Buffer.from(await pdfDoc.save());
+};
+
+module.exports = { stampSignature, stampFields, appendAuditCertificatePage, buildAuditPackPdf };

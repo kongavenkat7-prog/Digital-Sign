@@ -3,12 +3,33 @@ import { useRouter } from 'next/router';
 import * as pdfjsLib from 'pdfjs-dist';
 import toast from 'react-hot-toast';
 import AppShell from '@/components/AppShell';
+import Badge, { statusTone } from '@/components/Badge';
 import styles from '@/styles/Audit.module.css';
 import { api } from '@/lib/api';
 
 if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 }
+
+const ACTION_ICONS = {
+  'Document Created': '📄',
+  'Document Viewed': '👁️',
+  'Signature Placed': '✍️',
+  'Document Reviewed': '📝',
+  'Document Signed': '✅',
+  'Signed Copy Generated': '📑',
+  'Audit Chain Verified': '🛡️',
+  'Audit Completed': '🏁',
+  'Document Downloaded': '⬇️',
+  'Document Declined': '🚫',
+  'Changes Requested': '✏️',
+  'Signature Request Sent': '📨',
+  'Signing Link Opened': '🔗',
+  'OTP Sent': '🔐',
+  'OTP Verified': '🔓',
+  'Recipient Signed': '✅',
+  'Envelope Completed': '🏁',
+};
 
 const AuditPage = () => {
   const router = useRouter();
@@ -134,11 +155,23 @@ const AuditPage = () => {
   const readyToComplete = isVerified && !approvalPending && doc.status === 'signed';
 
   return (
-    <AppShell active="audit" title={doc.fileName} subtitle="Inspect the document alongside its hash-chained audit history.">
+    <AppShell
+      active="audit"
+      title={doc.title || doc.fileName}
+      subtitle="Inspect the document alongside its hash-chained audit history."
+      actions={
+        <Badge tone={statusTone(doc.status)} withDot>
+          {doc.status}
+        </Badge>
+      }
+    >
       {approvalPending && (
         <div className={styles.approvalBanner}>
-          ⏳ Approval Pending — the assigned reviewer hasn't approved this document yet. It can't be signed, its
-          audit can't be completed, and it can't be downloaded until they do.
+          <span className={styles.approvalIcon}>⏳</span>
+          <span>
+            <strong>Approval Pending</strong> — the assigned reviewer hasn't approved this document yet. It can't be
+            signed, its audit can't be completed, and it can't be downloaded until they do.
+          </span>
         </div>
       )}
       <div className={styles.grid}>
@@ -195,10 +228,13 @@ const AuditPage = () => {
                         onClick={() => hasDetails && toggleEvent(log._id)}
                         aria-expanded={isOpen}
                       >
-                        <span className={styles.accordionNumber}>{index + 1}</span>
+                        <span className={styles.accordionNumber}>{ACTION_ICONS[log.action] || index + 1}</span>
                         <span className={styles.accordionTitle}>
                           <span className={styles.accordionAction}>{log.action}</span>
-                          <span className={styles.accordionTimestamp}>{new Date(log.timestamp).toLocaleString()}</span>
+                          <span className={styles.accordionTimestamp}>
+                            {log.userName ? `${log.userName} · ` : ''}
+                            {new Date(log.timestamp).toLocaleString()}
+                          </span>
                         </span>
                         {hasDetails && <span className={styles.accordionChevron}>{isOpen ? '▾' : '▸'}</span>}
                       </button>
@@ -214,42 +250,48 @@ const AuditPage = () => {
             )}
           </div>
 
-          <div className={styles.verificationCard}>
-            <h2>Verify Audit Chain</h2>
-            <p>Verify the integrity of the complete audit trail</p>
-            <button onClick={handleVerifyAudit} disabled={verifying} className={styles.btnPrimary}>
-              {verifying ? 'Verifying...' : '✓ Verify Audit Chain'}
-            </button>
-            {isVerified && (
-              <div className={styles.verified}>
-                <span className={styles.checkmark}>✓</span>
-                <p>Audit chain verified successfully!</p>
-              </div>
-            )}
-          </div>
+          <div className={styles.finalizeCard}>
+            <h2>Finalize</h2>
 
-          <div className={styles.completionCard}>
-            <h2>Complete Audit</h2>
-            <p>
-              {approvalPending
-                ? 'Waiting on reviewer approval before this can be finalized.'
-                : doc.status !== 'signed'
-                ? 'Waiting on all signatures before this can be finalized.'
-                : !isVerified
-                ? 'Click "Verify Audit Chain" above first.'
-                : 'All steps completed. Ready to finalize?'}
-            </p>
-            <button onClick={handleCompleteAudit} disabled={completing || !readyToComplete} className={styles.btnSuccess}>
-              {completing
-                ? 'Completing...'
-                : approvalPending
-                ? 'Approval Pending'
-                : doc.status !== 'signed'
-                ? 'Awaiting Signatures'
-                : !isVerified
-                ? 'Verify Chain First ↑'
-                : '✓ Complete Audit & Download'}
-            </button>
+            <div className={styles.finalizeStep}>
+              <div className={`${styles.finalizeStepNum} ${isVerified ? styles.finalizeStepDone : ''}`}>
+                {isVerified ? '✓' : '1'}
+              </div>
+              <div className={styles.finalizeStepBody}>
+                <div className={styles.finalizeStepTitle}>Verify audit chain</div>
+                <p>Recompute and confirm the hash chain hasn't been tampered with.</p>
+                <button onClick={handleVerifyAudit} disabled={verifying || isVerified} className={styles.btnPrimary}>
+                  {isVerified ? 'Verified' : verifying ? 'Verifying…' : 'Verify Audit Chain'}
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.finalizeStep}>
+              <div className={`${styles.finalizeStepNum} ${readyToComplete ? styles.finalizeStepReady : ''}`}>2</div>
+              <div className={styles.finalizeStepBody}>
+                <div className={styles.finalizeStepTitle}>Complete audit</div>
+                <p>
+                  {approvalPending
+                    ? 'Waiting on reviewer approval.'
+                    : doc.status !== 'signed'
+                    ? 'Waiting on all signatures.'
+                    : !isVerified
+                    ? 'Verify the chain above first.'
+                    : 'All steps completed — ready to finalize.'}
+                </p>
+                <button onClick={handleCompleteAudit} disabled={completing || !readyToComplete} className={styles.btnSuccess}>
+                  {completing
+                    ? 'Completing…'
+                    : approvalPending
+                    ? 'Approval Pending'
+                    : doc.status !== 'signed'
+                    ? 'Awaiting Signatures'
+                    : !isVerified
+                    ? 'Verify Chain First'
+                    : '✓ Complete Audit & Download'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
