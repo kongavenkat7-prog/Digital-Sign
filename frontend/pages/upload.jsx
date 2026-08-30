@@ -12,7 +12,11 @@ if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 }
 
-const ROLE_OPTIONS = ['Signer', 'Approver', 'CC'];
+const ROLE_OPTIONS = ['Initiator', 'Reviewer', 'Approver'];
+const IDENTITY_OPTIONS = [
+  { value: 'email_otp', label: 'Email link + one-time passcode' },
+  { value: 'account_password', label: 'Account login + password' },
+];
 const FIELD_TYPES = [
   { type: 'signature', label: 'Signature' },
   { type: 'initials', label: 'Initials' },
@@ -29,9 +33,10 @@ const emptyRecipient = (order) => ({
   clientId: nextId('r'),
   name: '',
   email: '',
-  roleLabel: 'Signer',
+  roleLabel: 'Reviewer',
   order,
   identityVerification: 'email_otp',
+  accessPassword: '',
 });
 
 const UploadPage = () => {
@@ -105,6 +110,15 @@ const UploadPage = () => {
     const emails = recipients.map((r) => r.email.trim().toLowerCase());
     if (new Set(emails).size !== emails.length) {
       toast.error('Each recipient must have a distinct email');
+      return;
+    }
+    const roles = recipients.map((r) => r.roleLabel);
+    if (new Set(roles).size !== roles.length) {
+      toast.error('Each recipient must have a different role — two recipients can\'t share the same role');
+      return;
+    }
+    if (recipients.some((r) => r.identityVerification === 'account_password' && !r.accessPassword.trim())) {
+      toast.error('Set an access password for every recipient using Account login + password');
       return;
     }
 
@@ -212,6 +226,8 @@ const UploadPage = () => {
       email: r.email.trim(),
       roleLabel: r.roleLabel,
       order: r.order,
+      identityVerification: r.identityVerification,
+      accessPassword: r.identityVerification === 'account_password' ? r.accessPassword : undefined,
     })),
     fields: fields.map((f) => ({
       fieldId: f.fieldId,
@@ -317,8 +333,14 @@ const UploadPage = () => {
                 </div>
                 <div>
                   <label className={styles.label}>Identity verification</label>
-                  <select className={styles.input} value="email_otp" disabled>
-                    <option value="email_otp">Email link + one-time passcode</option>
+                  <select
+                    className={styles.input}
+                    value={r.identityVerification}
+                    onChange={(e) => updateRecipient(r.clientId, { identityVerification: e.target.value })}
+                  >
+                    {IDENTITY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -331,6 +353,18 @@ const UploadPage = () => {
                     onChange={(e) => updateRecipient(r.clientId, { order: Number(e.target.value) })}
                   />
                 </div>
+                {r.identityVerification === 'account_password' && (
+                  <div>
+                    <label className={styles.label}>Access password</label>
+                    <input
+                      className={styles.input}
+                      type="text"
+                      placeholder="Shared with the recipient out of band"
+                      value={r.accessPassword}
+                      onChange={(e) => updateRecipient(r.clientId, { accessPassword: e.target.value })}
+                    />
+                  </div>
+                )}
               </div>
               {recipients.length > 1 && (
                 <button type="button" className={styles.removeBtn} onClick={() => removeRecipient(r.clientId)}>

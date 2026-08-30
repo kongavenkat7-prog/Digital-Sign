@@ -64,6 +64,7 @@ router.get('/signing/:token', async (req, res) => {
           roleLabel: signer.roleLabel,
           status: signer.status,
           otpVerified: signer.otpVerified,
+          identityVerification: signer.identityVerification,
         },
         canActNow: isSignersTurn(signatureRecord, signer),
         fields: myFields,
@@ -156,6 +157,38 @@ router.post('/signing/:token/verify-otp', async (req, res) => {
     res.status(200).json({ success: true, message: 'Identity confirmed for this signature' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to verify passcode', message: error.message });
+  }
+});
+
+// Alternative to OTP for recipients set up with identityVerification: 'account_password' —
+// checks the access password set by the envelope's sender at creation time.
+router.post('/signing/:token/verify-password', async (req, res) => {
+  try {
+    const { password } = req.body;
+    const { signatureRecord, signer } = await findByToken(req.params.token);
+    if (!signatureRecord || !signer) return res.status(404).json({ error: 'Invalid signing link' });
+
+    if (signer.identityVerification !== 'account_password') {
+      return res.status(400).json({ error: 'This recipient is not set up for password verification' });
+    }
+    if (!password || calculateSHA256(password) !== signer.accessPasswordHash) {
+      return res.status(400).json({ error: 'Incorrect password' });
+    }
+
+    signer.otpVerified = true;
+    await signatureRecord.save();
+
+    await createAuditLog(
+      signatureRecord.documentId,
+      'Password Verified',
+      { recipient: signer.email },
+      req,
+      { userName: signer.name, documentName: signatureRecord.title || signatureRecord.fileName }
+    );
+
+    res.status(200).json({ success: true, message: 'Identity confirmed for this signature' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to verify password', message: error.message });
   }
 });
 

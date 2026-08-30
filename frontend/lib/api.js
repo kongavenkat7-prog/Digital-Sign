@@ -122,6 +122,8 @@ export const api = {
 
   verifyOtp: (token, code) => apiClient.post(`/api/signing/${token}/verify-otp`, { code }),
 
+  verifyPassword: (token, password) => apiClient.post(`/api/signing/${token}/verify-password`, { password }),
+
   submitSignature: (token, values, reason) =>
     apiClient.post(`/api/signing/${token}/sign`, { values, reason }),
 

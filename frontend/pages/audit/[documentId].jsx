@@ -27,6 +27,7 @@ const ACTION_ICONS = {
   'Signing Link Opened': '🔗',
   'OTP Sent': '🔐',
   'OTP Verified': '🔓',
+  'Password Verified': '🔑',
   'Recipient Signed': '✅',
   'Envelope Completed': '🏁',
 };
