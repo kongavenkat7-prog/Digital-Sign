@@ -16,6 +16,12 @@ const AUDIT_ACTION_TYPES = [
   'User Added',
   'User Updated',
   'Privilege Changed',
+  'Signature Request Sent',
+  'Signing Link Opened',
+  'OTP Sent',
+  'OTP Verified',
+  'Recipient Signed',
+  'Envelope Completed',
 ];
 
 const auditLogSchema = new Schema({

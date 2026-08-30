@@ -5,8 +5,9 @@ const { AuditLog } = require('../models/AuditLog');
 const { calculateSHA256 } = require('../utils/crypto');
 const { uploadToS3, downloadFromS3 } = require('../utils/s3');
 const { stampSignature } = require('../utils/pdfSign');
+const crypto = require('crypto');
 const { createAuditLog, verifyAuditChain } = require('../utils/audit');
-const { sendReviewerAssignedEmail } = require('../utils/mailer');
+const { sendReviewerAssignedEmail, sendSignatureRequestEmail } = require('../utils/mailer');
 const { CURRENT_USER } = require('./auth');
 
 const router = Router();
@@ -114,6 +115,137 @@ router.post('/documents/upload', async (req, res) => {
   } catch (error) {
     console.error('Upload error:', error);
     res.status(500).json({ error: 'Upload failed', message: error.message });
+  }
+});
+
+// Create an envelope (New Envelope wizard: Document -> Recipients -> Fields).
+// Distinct from /documents/upload (the legacy single-admin flow): this route
+// creates a full multi-recipient, token-based, field-typed envelope, and
+// optionally emails the first recipient(s) their signing link immediately.
+router.post('/documents/envelope', async (req, res) => {
+  try {
+    const {
+      fileName,
+      fileData,
+      title,
+      messageToRecipients,
+      sequentialRouting,
+      recipients,
+      fields,
+      action, // 'send' | 'draft'
+    } = req.body;
+
+    if (!fileName || !fileData) {
+      return res.status(400).json({ error: 'Missing required fields: fileName, fileData' });
+    }
+    if (!Array.isArray(recipients) || recipients.length === 0) {
+      return res.status(400).json({ error: 'At least one recipient is required' });
+    }
+    if (recipients.some((r) => !r.name || !r.email)) {
+      return res.status(400).json({ error: 'Every recipient needs a name and email' });
+    }
+    const emails = recipients.map((r) => r.email.trim().toLowerCase());
+    if (new Set(emails).size !== emails.length) {
+      return res.status(400).json({ error: 'Each recipient must have a distinct email' });
+    }
+
+    const documentId = uuidv4();
+    const s3Key = `originals/${documentId}/${fileName}`;
+
+    const base64Data = fileData.includes(',') ? fileData.split(',')[1] : fileData;
+    const fileBuffer = Buffer.from(base64Data, 'base64');
+    const pdfHash = calculateSHA256(fileBuffer);
+
+    const isSend = action !== 'draft';
+    const isSequential = sequentialRouting !== false;
+
+    const orderedRecipients = [...recipients].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const signers = orderedRecipients.map((r, index) => ({
+      name: r.name,
+      email: r.email,
+      roleLabel: r.roleLabel || '',
+      order: r.order ?? index,
+      status: !isSend ? 'awaiting' : isSequential ? (index === 0 ? 'pending' : 'awaiting') : 'pending',
+      token: crypto.randomBytes(24).toString('hex'),
+      identityVerification: 'email_otp',
+    }));
+
+    const fieldDocs = (Array.isArray(fields) ? fields : []).map((f) => ({
+      fieldId: f.fieldId || crypto.randomBytes(8).toString('hex'),
+      type: f.type || 'signature',
+      label: f.label || '',
+      assignedToEmail: (f.assignedToEmail || '').trim().toLowerCase(),
+      pageNumber: f.pageNumber || 1,
+      leftPct: f.leftPct ?? 10,
+      topPct: f.topPct ?? 10,
+      widthPct: f.widthPct ?? 20,
+      heightPct: f.heightPct ?? 5,
+      required: f.required !== false,
+    }));
+
+    const s3Url = await uploadToS3(s3Key, fileBuffer, 'application/pdf');
+
+    const signatureRecord = new SignatureRecord({
+      documentId,
+      fileName,
+      fileSize: fileBuffer.length,
+      requestedBy: CURRENT_USER.name,
+      title: title || fileName,
+      messageToRecipients: messageToRecipients || '',
+      sequentialRouting: isSequential,
+      signers,
+      fields: fieldDocs,
+      s3OriginalKey: s3Key,
+      pdfHash,
+      status: isSend ? 'pending' : 'draft',
+      auditTrail: [],
+    });
+
+    await signatureRecord.save();
+
+    const auditLogId = await createAuditLog(
+      documentId,
+      'Document Created',
+      { fileName, fileSize: fileBuffer.length, pdfHash, recipientCount: signers.length, sequentialRouting: isSequential },
+      req,
+      { userName: CURRENT_USER.name, documentName: signatureRecord.title }
+    );
+    signatureRecord.auditTrail.push(auditLogId);
+    await signatureRecord.save();
+
+    if (isSend) {
+      const toNotify = signatureRecord.signers.filter((s) => s.status === 'pending');
+      await Promise.all(
+        toNotify.map(async (signer) => {
+          await sendSignatureRequestEmail({
+            to: signer.email,
+            recipientName: signer.name,
+            requestedByOrg: CURRENT_USER.name,
+            documentName: signatureRecord.title,
+            token: signer.token,
+          }).catch((error) => console.error('Signature-request email failed:', error));
+          const notifyAuditId = await createAuditLog(
+            documentId,
+            'Signature Request Sent',
+            { to: signer.email },
+            req,
+            { userName: CURRENT_USER.name, documentName: signatureRecord.title }
+          );
+          signatureRecord.auditTrail.push(notifyAuditId);
+        })
+      );
+      await signatureRecord.save();
+    }
+
+    res.status(201).json({
+      success: true,
+      documentId,
+      message: isSend ? 'Envelope sent' : 'Envelope saved as draft',
+      data: { documentId, fileName, pdfHash, s3Url, status: signatureRecord.status },
+    });
+  } catch (error) {
+    console.error('Envelope creation error:', error);
+    res.status(500).json({ error: 'Failed to create envelope', message: error.message });
   }
 });
 
