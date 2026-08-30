@@ -34,6 +34,40 @@ Both services need a MongoDB instance (`MONGODB_URI`, default
 `mongodb://localhost:27017/signvault`) and AWS S3 credentials for document
 storage (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`).
 
+## Envelope flow (multi-recipient, no recipient login)
+
+`/upload` is a 3-step "New envelope" wizard — Document, Recipients, Fields —
+that creates a multi-recipient envelope instead of the legacy single-admin
+upload:
+
+1. **Document**: choose the PDF, set the envelope title/message, and toggle
+   sequential vs. parallel routing.
+2. **Recipients**: add one or more people (name, email, role); each gets a
+   unique magic-link token and email-OTP identity verification — no SignVault
+   account required.
+3. **Fields**: drag/resize Signature, Initials, Date signed, Text, and
+   Checkbox fields onto the PDF and assign each to a recipient, with exact
+   Left%/Top%/Width%/Height% control and a Required toggle.
+
+Sending the envelope emails each recipient whose turn it is (`utils/mailer.js`
+→ `sendSignatureRequestEmail`) a link to `/signing/:token` — a public page
+(`routes/signing.js`, mounted outside `requireAuth`) with its own
+Review → Complete fields → Authenticate → Sign stepper. Authenticate sends an
+emailed one-time passcode (`sendOtpEmail`) that must be verified before the
+Sign step is enabled. Signing stamps that recipient's fields onto the PDF,
+advances routing to the next recipient (if sequential), and — once everyone
+has signed — verifies the audit hash chain, appends an audit-certificate page
+(`utils/pdfSign.js` → `appendAuditCertificatePage`), and emails every
+recipient a completion notice (`sendCompletionEmail`). The post-sign screen
+offers three downloads: signed PDF with the audit page, without it, and a
+JSON "audit pack" of the full hash-chained audit trail.
+
+This sits alongside the original single-admin flow (`/documents/upload` →
+preview → review → sign → audit → download) with its own schema fields
+(`signaturePlacements`, `approved`) — both share `AuditLog`/audit-verification
+code but a `SignatureRecord` created by one flow doesn't use the other's
+fields.
+
 ## Project structure
 
 ```

@@ -19,6 +19,7 @@ const rolesRouter = require('./routes/roles');
 const auditLogsRouter = require('./routes/auditLogs');
 const dashboardRouter = require('./routes/dashboard');
 const authRouter = require('./routes/auth');
+const signingRouter = require('./routes/signing');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -44,6 +45,10 @@ app.get('/health', (req, res) => {
 
 // /api/auth mounts its own auth (login is public, /me requires a token)
 app.use('/api/auth', authRouter);
+
+// /api/signing is public and token-gated (magic-link recipient signing) —
+// recipients never hold an admin JWT, so this must sit outside requireAuth.
+app.use('/api', signingRouter);
 
 // Every other /api route requires a valid session
 app.use('/api', requireAuth, documentsRouter);

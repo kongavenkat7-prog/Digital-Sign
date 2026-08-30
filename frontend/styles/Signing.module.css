@@ -1,0 +1,391 @@
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.centered {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  color: #666;
+}
+
+.doneCard {
+  max-width: 460px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 36px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.doneIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #ecfdf5;
+  color: #16a34a;
+  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.doneCard h2 {
+  font-size: 20px;
+  margin: 0 0 10px 0;
+  color: #1a1a1a;
+}
+
+.doneCard p {
+  font-size: 13.5px;
+  color: #555;
+  line-height: 1.5;
+  margin: 0 0 8px 0;
+}
+
+.downloadsLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #999;
+  margin: 20px 0 10px;
+  text-align: center;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand strong {
+  font-size: 16px;
+  color: #1a1a1a;
+}
+
+.brand span {
+  font-size: 12px;
+  color: #888;
+}
+
+.stepper {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.step {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #e0e0e0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #888;
+  background: #fff;
+}
+
+.stepActive {
+  border-color: var(--sv-primary, #5865f2);
+  color: var(--sv-primary, #5865f2);
+  background: rgba(88, 101, 242, 0.06);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 2fr 1.1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pdfCard {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.canvasWrap {
+  display: flex;
+  justify-content: center;
+  overflow: auto;
+  max-height: 640px;
+}
+
+.canvasWrap canvas {
+  max-width: 100%;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: #666;
+}
+
+.pagination button {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 5px 10px;
+}
+
+.pagination button:disabled {
+  opacity: 0.4;
+}
+
+.sidePanel {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  position: sticky;
+  top: 20px;
+}
+
+.sidePanel h2 {
+  font-size: 16px;
+  margin: 0 0 10px 0;
+  color: #1a1a1a;
+}
+
+.hint {
+  font-size: 12px;
+  color: #888;
+  margin: 0 0 14px 0;
+  line-height: 1.5;
+}
+
+.label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 6px;
+}
+
+.required {
+  color: #dc2626;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  margin-bottom: 12px;
+}
+
+.input:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--sv-primary, #5865f2);
+}
+
+.textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+.fieldRow {
+  margin-bottom: 16px;
+}
+
+.signaturePad {
+  width: 100%;
+  height: 120px;
+  border: 2px solid var(--sv-primary, #5865f2);
+  border-radius: 8px;
+  background: #fff;
+  cursor: crosshair;
+  display: block;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.linkBtn {
+  background: transparent;
+  border: none;
+  color: var(--sv-primary, #5865f2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.otpBox {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 14px;
+  background: #fafafa;
+}
+
+.otpHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13.5px;
+  margin-bottom: 4px;
+}
+
+.verifiedBadge {
+  color: #16a34a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.otpRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.otpRow .input {
+  flex: 1;
+}
+
+.appearanceBox {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 14px;
+  background: #fafafa;
+}
+
+.appearanceLabel {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 8px;
+}
+
+.appearanceImg {
+  max-width: 100%;
+  max-height: 90px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.appearanceMeta {
+  font-size: 11px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.checklist {
+  font-size: 12.5px;
+  color: #999;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checkDone {
+  color: #16a34a;
+  text-decoration: line-through;
+}
+
+.btnPrimaryFull,
+.btnSecondaryFull {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 10px;
+  border: 1px solid transparent;
+}
+
+.btnPrimaryFull {
+  background: var(--sv-primary, #5865f2);
+  color: #fff;
+}
+
+.btnPrimaryFull:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnSecondaryFull {
+  background: #fff;
+  border-color: #e0e0e0;
+  color: #1a1a1a;
+}
+
+.btnSecondaryFull:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnSecondary {
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--sv-primary, #5865f2);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+.btnSecondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnGhost {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid #e0e0e0;
+  color: #666;
+  cursor: pointer;
+}
+
+.btnRow {
+  display: flex;
+  gap: 10px;
+}
+
+.btnRow .btnPrimaryFull {
+  flex: 1.4;
+  margin-bottom: 0;
+}

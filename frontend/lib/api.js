@@ -41,6 +41,10 @@ export const api = {
   uploadDocument: (fileName, fileData, extra) =>
     apiClient.post('/api/documents/upload', { fileName, fileData, ...extra }),
 
+  // New Envelope wizard (Document -> Recipients -> Fields), multi-recipient,
+  // token-based signing — distinct from the legacy single-admin uploadDocument above.
+  createEnvelope: (payload) => apiClient.post('/api/documents/envelope', payload),
+
   previewDocument: (documentId) =>
     apiClient.get(`/api/documents/${documentId}/preview`, { responseType: 'arraybuffer' }),
 
@@ -107,6 +111,22 @@ export const api = {
 
   // Auth
   getCurrentUser: () => apiClient.get('/api/auth/me'),
+
+  // Public, token-gated recipient signing (no login) — routes/signing.js
+  resolveSigningToken: (token) => apiClient.get(`/api/signing/${token}`),
+
+  previewSigningDocument: (token) =>
+    apiClient.get(`/api/signing/${token}/preview`, { responseType: 'arraybuffer' }),
+
+  requestOtp: (token) => apiClient.post(`/api/signing/${token}/request-otp`),
+
+  verifyOtp: (token, code) => apiClient.post(`/api/signing/${token}/verify-otp`, { code }),
+
+  submitSignature: (token, values, reason) =>
+    apiClient.post(`/api/signing/${token}/sign`, { values, reason }),
+
+  downloadSigningVariant: (token, variant) =>
+    apiClient.get(`/api/signing/${token}/download`, { params: { variant }, responseType: 'blob' }),
 };
 
 export default apiClient;
