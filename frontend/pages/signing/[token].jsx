@@ -12,18 +12,30 @@ if (typeof window !== 'undefined') {
 const STAGES = ['review', 'fields', 'authenticate', 'sign'];
 const STAGE_LABELS = { review: 'Review', fields: 'Complete fields', authenticate: 'Authenticate', sign: 'Sign' };
 
-const SignaturePad = ({ onChange }) => {
+// Draw / Type / Upload composer for signature & initials fields — the same
+// three creation methods as the legacy preview page's signature step.
+const SignatureComposer = ({ onChange, fieldId }) => {
+  const [tab, setTab] = useState('draw');
+  const [typedText, setTypedText] = useState('');
+  const [previewSrc, setPreviewSrc] = useState('');
   const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
   const drawing = useRef(false);
 
   useEffect(() => {
+    if (tab !== 'draw' || !canvasRef.current) return;
     const canvas = canvasRef.current;
     canvas.width = canvas.offsetWidth;
     canvas.height = 120;
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }, []);
+  }, [tab]);
+
+  const emit = (dataUrl) => {
+    setPreviewSrc(dataUrl);
+    onChange(dataUrl);
+  };
 
   const start = (e) => {
     drawing.current = true;
@@ -45,27 +57,92 @@ const SignaturePad = ({ onChange }) => {
   const stop = () => {
     if (!drawing.current) return;
     drawing.current = false;
-    onChange(canvasRef.current.toDataURL());
+    emit(canvasRef.current.toDataURL());
   };
-  const clear = () => {
+  const clearDraw = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    onChange('');
+    emit('');
+  };
+
+  const handleTypedChange = (value) => {
+    setTypedText(value);
+    if (!value.trim()) {
+      emit('');
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = 400;
+    canvas.height = 120;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.font = 'italic 44px cursive';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(value, canvas.width / 2, canvas.height / 2);
+    emit(canvas.toDataURL());
+  };
+
+  const handleUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => emit(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const switchTab = (next) => {
+    setTab(next);
+    setTypedText('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    emit('');
   };
 
   return (
-    <div>
-      <canvas
-        ref={canvasRef}
-        className={styles.signaturePad}
-        onMouseDown={start}
-        onMouseMove={move}
-        onMouseUp={stop}
-        onMouseLeave={stop}
-      />
-      <button type="button" className={styles.linkBtn} onClick={clear}>Clear</button>
+    <div className={styles.composer}>
+      <div className={styles.composerTabs}>
+        <button type="button" className={`${styles.composerTab} ${tab === 'draw' ? styles.composerTabActive : ''}`} onClick={() => switchTab('draw')}>✏️ Draw</button>
+        <button type="button" className={`${styles.composerTab} ${tab === 'type' ? styles.composerTabActive : ''}`} onClick={() => switchTab('type')}>📝 Type</button>
+        <button type="button" className={`${styles.composerTab} ${tab === 'upload' ? styles.composerTabActive : ''}`} onClick={() => switchTab('upload')}>📤 Upload</button>
+      </div>
+
+      {tab === 'draw' && (
+        <div>
+          <canvas
+            ref={canvasRef}
+            className={styles.signaturePad}
+            onMouseDown={start}
+            onMouseMove={move}
+            onMouseUp={stop}
+            onMouseLeave={stop}
+          />
+          <button type="button" className={styles.linkBtn} onClick={clearDraw}>Clear</button>
+        </div>
+      )}
+
+      {tab === 'type' && (
+        <div>
+          <input
+            type="text"
+            className={styles.input}
+            placeholder="Type your name"
+            value={typedText}
+            onChange={(e) => handleTypedChange(e.target.value)}
+          />
+          {previewSrc && <img src={previewSrc} alt="Typed signature preview" className={styles.composerPreview} />}
+        </div>
+      )}
+
+      {tab === 'upload' && (
+        <div>
+          <input ref={fileInputRef} type="file" accept="image/*" className={styles.input} onChange={handleUpload} id={`upload-${fieldId}`} />
+          {previewSrc && <img src={previewSrc} alt="Uploaded signature preview" className={styles.composerPreview} />}
+        </div>
+      )}
     </div>
   );
 };
@@ -227,11 +304,11 @@ const SigningPage = () => {
     try {
       setDownloading(variant);
       const res = await api.downloadSigningVariant(token, variant);
-      const blob = new Blob([res.data], { type: variant === 'audit-pack' ? 'application/json' : 'application/pdf' });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      const suffix = variant === 'with-audit' ? '-signed-with-audit.pdf' : variant === 'audit-pack' ? '-audit-pack.json' : '-signed.pdf';
+      const suffix = variant === 'with-audit' ? '-signed-with-audit.pdf' : variant === 'audit-pack' ? '-audit-pack.pdf' : '-signed.pdf';
       link.setAttribute('download', `${info.fileName.replace(/\.pdf$/i, '')}${suffix}`);
       document.body.appendChild(link);
       link.click();
@@ -321,7 +398,7 @@ const SigningPage = () => {
                     {field.label || field.type} {field.required && <span className={styles.required}>*</span>}
                   </label>
                   {(field.type === 'signature' || field.type === 'initials') && (
-                    <SignaturePad onChange={(dataUrl) => setFieldValue(field.fieldId, dataUrl)} />
+                    <SignatureComposer fieldId={field.fieldId} onChange={(dataUrl) => setFieldValue(field.fieldId, dataUrl)} />
                   )}
                   {field.type === 'date' && (
                     <input
