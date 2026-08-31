@@ -208,6 +208,9 @@ router.post('/signing/:token/sign', async (req, res) => {
     if (!signer.otpVerified) {
       return res.status(400).json({ error: 'Identity not verified — enter the emailed passcode first' });
     }
+    if (!reason || !String(reason).trim()) {
+      return res.status(400).json({ error: 'A reason is required before signing' });
+    }
 
     const myFields = signatureRecord.fields.filter((f) => f.assignedToEmail === signer.email.toLowerCase());
     const valueMap = new Map((Array.isArray(values) ? values : []).map((v) => [v.fieldId, v.value]));

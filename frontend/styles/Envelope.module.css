@@ -90,6 +90,18 @@
   border-color: var(--sv-primary, #5865f2);
 }
 
+.inputError {
+  border-color: #dc2626 !important;
+  background: #fef2f2;
+}
+
+.fieldError {
+  font-size: 11.5px;
+  color: #dc2626;
+  font-weight: 600;
+  margin: -10px 0 12px 0;
+}
+
 .textarea {
   min-height: 80px;
   resize: vertical;

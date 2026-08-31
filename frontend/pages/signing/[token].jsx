@@ -305,7 +305,7 @@ const SigningPage = () => {
       const payload = Object.entries(values).map(([fieldId, value]) => ({ fieldId, value }));
       const res = await api.submitSignature(token, payload, reason);
       setSignResult(res.data.data);
-      setStage('done');
+      setStage('signed');
       toast.success('Signature recorded');
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to sign document');
@@ -334,7 +334,7 @@ const SigningPage = () => {
     }
   };
 
-  if (stage === 'done' && signResult) {
+  if (stage === 'signed' && signResult) {
     const signedSigField = info.fields.find((f) => f.type === 'signature' && values[f.fieldId]);
     return (
       <div className={styles.centered}>
@@ -343,7 +343,7 @@ const SigningPage = () => {
           <h2>Signature recorded</h2>
           <p>
             Your signature, its meaning, your identity and the exact timestamp have been written to the tamper-evident
-            audit trail. Once every recipient has signed, the sealed PDF with its audit certificate page is generated.
+            audit trail.
           </p>
 
           {signedSigField && (
@@ -359,6 +359,29 @@ const SigningPage = () => {
               </div>
             </div>
           )}
+
+          <div className={styles.appearanceBox} style={{ textAlign: 'left' }}>
+            <div className={styles.appearanceLabel}>Reason for signing</div>
+            <div className={styles.appearanceMeta}>{reason}</div>
+          </div>
+
+          <button className={styles.btnPrimaryFull} style={{ marginTop: 20 }} onClick={() => setStage('done')}>
+            Continue to Download →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (stage === 'done' && signResult) {
+    return (
+      <div className={styles.centered}>
+        <div className={styles.doneCard}>
+          <div className={styles.doneIcon}>⬇</div>
+          <h2>Download your document</h2>
+          <p>
+            Once every recipient has signed, the sealed PDF with its audit certificate page is generated.
+          </p>
 
           <div className={styles.downloadsLabel}>DOWNLOADS</div>
           <button className={styles.btnPrimaryFull} disabled={downloading !== null} onClick={() => handleDownload('with-audit')}>
@@ -465,8 +488,16 @@ const SigningPage = () => {
           {stage === 'authenticate' && (
             <>
               <h2>Authenticate</h2>
-              <label className={styles.label}>Reason (optional)</label>
-              <textarea className={styles.textarea} value={reason} onChange={(e) => setReason(e.target.value)} />
+              <label className={styles.label}>
+                Reason <span className={styles.required}>*</span>
+              </label>
+              <textarea
+                className={styles.textarea}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Why are you signing this document?"
+              />
+              {!reason.trim() && <p className={styles.fieldError}>A reason is required before you can sign.</p>}
 
               {info.signer.identityVerification === 'account_password' ? (
                 <div className={styles.otpBox}>
@@ -531,7 +562,7 @@ const SigningPage = () => {
 
               <div className={styles.btnRow}>
                 <button className={styles.btnGhost} onClick={() => setStage('fields')}>Back</button>
-                <button className={styles.btnPrimaryFull} disabled={!otpVerified} onClick={() => setStage('sign')}>
+                <button className={styles.btnPrimaryFull} disabled={!otpVerified || !reason.trim()} onClick={() => setStage('sign')}>
                   Continue to sign →
                 </button>
               </div>

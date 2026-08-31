@@ -1,23 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import toast from 'react-hot-toast';
 import AppShell from '@/components/AppShell';
 import styles from '@/styles/Dashboard.module.css';
 import { api } from '@/lib/api';
-
-const formatDue = (dueDate) => {
-  if (!dueDate) return 'No due date';
-  const diffMs = new Date(dueDate).getTime() - Date.now();
-  if (diffMs <= 0) return 'Due now';
-  const hours = Math.round(diffMs / 3_600_000);
-  if (hours < 24) return `Due in ${hours} hour${hours === 1 ? '' : 's'}`;
-  return `Due in ${Math.round(hours / 24)} day${Math.round(hours / 24) === 1 ? '' : 's'}`;
-};
-
-const formatSize = (bytes) => {
-  if (!bytes) return '';
-  return bytes > 1_000_000 ? `${(bytes / 1_000_000).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
-};
 
 const Donut = ({ pending, signed, declined, total }) => {
   const r = 52;
@@ -61,117 +47,239 @@ const Donut = ({ pending, signed, declined, total }) => {
   );
 };
 
+const statusMeta = {
+  draft: { label: 'DRAFT', tone: styles.badgeGray },
+  sent: { label: 'SENT', tone: styles.badgeIndigo },
+  inProgress: { label: 'IN PROGRESS', tone: styles.badgeAmber },
+  completed: { label: 'COMPLETED', tone: styles.badgeGreen },
+  declined: { label: 'DECLINED', tone: styles.badgeRed },
+};
+
+const deriveStatus = (doc) => {
+  if (doc.status === 'declined') return statusMeta.declined;
+  if (doc.status === 'signed' || doc.status === 'verified') return statusMeta.completed;
+  if (doc.status === 'draft') return statusMeta.draft;
+  const anySigned = (doc.signers || []).some((s) => s.status === 'signed');
+  return anySigned ? statusMeta.inProgress : statusMeta.sent;
+};
+
+const purgeDateFor = (doc) => {
+  if (doc.legalHold) return 'On legal hold';
+  const days = doc.retentionDays ?? 90;
+  const created = new Date(doc.createdAt);
+  const purge = new Date(created.getTime() + days * 24 * 60 * 60 * 1000);
+  return purge.toLocaleDateString();
+};
+
+const RetentionPanel = ({ doc, onClose, onSaved }) => {
+  const [retentionDays, setRetentionDays] = useState(doc.retentionDays ?? 90);
+  const [legalHold, setLegalHold] = useState(Boolean(doc.legalHold));
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleApply = async () => {
+    try {
+      setSaving(true);
+      const res = await api.updateRetention(doc.documentId, { retentionDays, legalHold, reason });
+      toast.success('Retention updated');
+      onSaved(res.data.data);
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to update retention');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className={styles.retentionPanel}>
+      <div className={styles.retentionHeader}>
+        <strong>Retention — {doc.title || doc.fileName}</strong>
+        <button className={styles.linkBtn} onClick={onClose}>Close</button>
+      </div>
+      <p className={styles.retentionHint}>Document binary purges on {purgeDateFor(doc)}</p>
+
+      <label className={styles.retentionLabel}>Override retention (days)</label>
+      <input
+        type="number"
+        min={1}
+        className={styles.retentionInput}
+        value={retentionDays}
+        onChange={(e) => setRetentionDays(Number(e.target.value))}
+      />
+
+      <div className={styles.retentionToggleRow}>
+        <div>
+          <div className={styles.retentionToggleLabel}>Legal hold</div>
+          <div className={styles.retentionHint}>Suspends automatic purge.</div>
+        </div>
+        <button
+          type="button"
+          className={`${styles.toggle} ${legalHold ? styles.toggleOn : ''}`}
+          onClick={() => setLegalHold((v) => !v)}
+        >
+          <span className={styles.toggleKnob} />
+        </button>
+      </div>
+
+      <label className={styles.retentionLabel}>Reason (recorded in audit)</label>
+      <input
+        type="text"
+        className={styles.retentionInput}
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+      />
+
+      <button className={styles.btnPrimary} style={{ width: '100%' }} disabled={saving} onClick={handleApply}>
+        {saving ? 'Applying…' : '🛡️ Apply retention change'}
+      </button>
+    </div>
+  );
+};
+
 const DashboardPage = () => {
   const router = useRouter();
   const [stats, setStats] = useState(null);
+  const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState('queue');
+  const [search, setSearch] = useState('');
+  const [retentionDocId, setRetentionDocId] = useState(null);
 
-  useEffect(() => {
-    api
-      .getDashboardStats()
-      .then((res) => setStats(res.data.data))
-      .catch(() => toast.error('Failed to load dashboard stats'))
+  const load = () => {
+    setLoading(true);
+    Promise.all([api.getDashboardStats(), api.listDocuments({ limit: 200 })])
+      .then(([statsRes, docsRes]) => {
+        setStats(statsRes.data.data);
+        setDocuments(docsRes.data.data);
+      })
+      .catch(() => toast.error('Failed to load dashboard'))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(load, []);
 
   const alloc = stats?.statusAllocation || { pendingSignature: 0, fullySigned: 0, declined: 0 };
 
+  const awaitingCount = documents.filter((d) => d.status === 'pending').length;
+  const createdCount = documents.length;
+  const completedCount = documents.filter((d) => d.status === 'signed' || d.status === 'verified').length;
+
+  const filtered = useMemo(() => {
+    let list = documents;
+    if (tab === 'queue') list = list.filter((d) => d.status === 'pending');
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(
+        (d) =>
+          (d.title || d.fileName || '').toLowerCase().includes(q) ||
+          (d.signers || []).some((s) => s.email.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [documents, tab, search]);
+
+  const retentionDoc = documents.find((d) => d.documentId === retentionDocId);
+
   return (
-    <AppShell active="dashboard" title="Dashboard" subtitle="Review signature requests, pending tasks, and recent vault status.">
-      <div className={styles.statsRow}>
-        <div className={styles.card}>
-          <div className={styles.statCard}>
-            <div className={styles.statTop}>
-              Awaiting Signature <span>✍️</span>
-            </div>
-            <div className={styles.statValue}>{stats?.awaitingSignatureCount ?? '—'}</div>
-            <div className={styles.statFootGreen}>Documents needing your signature</div>
-          </div>
+    <AppShell active="dashboard" title="Envelopes" subtitle="Rynovate Technologies Pvt. Ltd." actions={
+      <button className={styles.btnPrimary} onClick={() => router.push('/upload')}>+ New envelope</button>
+    }>
+      <div className={styles.tileRow}>
+        <div className={styles.tile}>
+          <div className={styles.tileLabel}>⏱ Awaiting me</div>
+          <div className={styles.tileValue}>{loading ? '—' : awaitingCount}</div>
         </div>
-        <div className={styles.card}>
-          <div className={styles.statCard}>
-            <div className={styles.statTop}>
-              Pending Approvals <span>⏱️</span>
-            </div>
-            <div className={styles.statValue}>{stats?.pendingApprovalsCount ?? '—'}</div>
-            <div className={styles.statFoot}>Average turnaround: 4.2 hours</div>
-          </div>
+        <div className={styles.tile}>
+          <div className={styles.tileLabel}>📄 Created by me</div>
+          <div className={styles.tileValue}>{loading ? '—' : createdCount}</div>
         </div>
-        <div className={styles.card}>
-          <div className={styles.statCard}>
-            <div className={styles.statTop}>
-              Recently Signed <span>✅</span>
-            </div>
-            <div className={styles.statValue}>{stats?.recentlySignedCount ?? '—'}</div>
-            <div className={styles.statFootIndigo}>Across all vault documents</div>
-          </div>
-        </div>
-        <div className={`${styles.card} ${styles.quickActions}`}>
-          <h4>Quick Actions</h4>
-          <button className={styles.btnPrimary} onClick={() => router.push('/upload')}>
-            Upload New Document
-          </button>
-          <button className={styles.btnSecondary} onClick={() => router.push('/documents')}>
-            Start Signing Workflow
-          </button>
+        <div className={styles.tile}>
+          <div className={styles.tileLabel}>🛡 Completed</div>
+          <div className={styles.tileValue}>{loading ? '—' : completedCount}</div>
         </div>
       </div>
 
       <div className={styles.mainGrid}>
         <div>
-          <div className={styles.sectionCard}>
-            <div className={styles.sectionHeader}>
-              <h3>Awaiting Your Signature</h3>
-              <a onClick={() => router.push('/documents')}>View All ({stats?.awaitingSignatureCount ?? 0})</a>
+          <div className={styles.toolbar}>
+            <div className={styles.tabs}>
+              <button className={`${styles.tab} ${tab === 'queue' ? styles.tabActive : ''}`} onClick={() => setTab('queue')}>
+                Approval queue ({awaitingCount})
+              </button>
+              <button className={`${styles.tab} ${tab === 'mine' ? styles.tabActive : ''}`} onClick={() => setTab('mine')}>
+                Created by me ({createdCount})
+              </button>
+              <button className={`${styles.tab} ${tab === 'all' ? styles.tabActive : ''}`} onClick={() => setTab('all')}>
+                All visible ({createdCount})
+              </button>
             </div>
-            {loading && <p className={styles.empty}>Loading…</p>}
-            {!loading && (stats?.awaitingSignature.length ?? 0) === 0 && (
-              <p className={styles.empty}>Nothing waiting on a signature right now.</p>
-            )}
-            {stats?.awaitingSignature.map((doc) => (
-              <div key={doc.documentId} className={styles.docRow}>
-                <div className={styles.docInfo}>
-                  <div className={styles.docIcon}>📄</div>
-                  <div>
-                    <div className={styles.docName}>{doc.fileName}</div>
-                    <div className={styles.docMeta}>
-                      {formatSize(doc.fileSize)} • Requested by {doc.requestedBy || 'SignVault'}
-                    </div>
-                  </div>
-                </div>
-                <div className={styles.docRight}>
-                  <span className={styles.dueLabel}>{formatDue(doc.dueDate)}</span>
-                  <button className={styles.btnSignNow} onClick={() => router.push(`/sign/${doc.documentId}`)}>
-                    Sign Now
-                  </button>
-                </div>
-              </div>
-            ))}
+            <input
+              className={styles.searchInput}
+              placeholder="Search title or recipient…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
 
-          <div className={styles.sectionCard}>
-            <div className={styles.sectionHeader}>
-              <h3>Recently Completed</h3>
-            </div>
-            {!loading && (stats?.recentlyCompleted.length ?? 0) === 0 && (
-              <p className={styles.empty}>No completed documents yet.</p>
-            )}
-            {stats?.recentlyCompleted.map((doc) => (
-              <div key={doc.documentId} className={styles.docRow}>
-                <div className={styles.docInfo}>
-                  <div className={styles.docIcon}>✅</div>
-                  <div>
-                    <div className={styles.docName}>{doc.fileName}</div>
-                    <div className={styles.docMeta}>
-                      Signed {doc.signedAt ? new Date(doc.signedAt).toLocaleString() : ''}
-                    </div>
-                  </div>
-                </div>
-                <span className={styles.dueLabel} style={{ color: 'var(--sv-success)' }}>
-                  {doc.signers.filter((s) => s.status === 'signed').length}/{doc.signers.length || 1} Signed
-                </span>
-              </div>
-            ))}
+          <div className={styles.tableCard}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>TITLE</th>
+                  <th>STATUS</th>
+                  <th>RECIPIENTS</th>
+                  <th>PURGE AFTER</th>
+                  <th>CREATED</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {!loading && filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className={styles.empty}>No envelopes match this view.</td>
+                  </tr>
+                )}
+                {filtered.map((doc) => {
+                  const meta = deriveStatus(doc);
+                  const signedCount = (doc.signers || []).filter((s) => s.status === 'signed').length;
+                  return (
+                    <React.Fragment key={doc.documentId}>
+                      <tr>
+                        <td className={styles.titleCell} onClick={() => router.push(`/audit/${doc.documentId}`)}>
+                          {doc.title || doc.fileName}
+                        </td>
+                        <td><span className={`${styles.badge} ${meta.tone}`}>{meta.label}</span></td>
+                        <td>{signedCount}/{doc.signers?.length || 0} signed</td>
+                        <td>{purgeDateFor(doc)}</td>
+                        <td>{new Date(doc.createdAt).toLocaleDateString()}</td>
+                        <td>
+                          <button
+                            className={styles.linkBtn}
+                            onClick={() => setRetentionDocId(retentionDocId === doc.documentId ? null : doc.documentId)}
+                          >
+                            Retention
+                          </button>
+                        </td>
+                      </tr>
+                      {retentionDocId === doc.documentId && (
+                        <tr>
+                          <td colSpan={6} style={{ padding: 0 }}>
+                            <RetentionPanel
+                              doc={doc}
+                              onClose={() => setRetentionDocId(null)}
+                              onSaved={(updated) => {
+                                setDocuments((prev) => prev.map((d) => (d.documentId === updated.documentId ? updated : d)));
+                                setRetentionDocId(null);
+                              }}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -200,19 +308,6 @@ const DashboardPage = () => {
                   <span className={styles.legendDot} style={{ background: 'var(--sv-danger)' }} />
                   Declined ({alloc.declined}%)
                 </div>
-              </div>
-            </div>
-          </div>
-
-          <div className={styles.sectionCard}>
-            <div className={styles.dropzone}>
-              <div style={{ fontSize: 22 }}>⬆️</div>
-              <strong>Drag and drop document here</strong>
-              PDF up to 25MB
-              <div style={{ marginTop: 14 }}>
-                <button className={styles.btnSecondary} onClick={() => router.push('/upload')}>
-                  Select File from Computer
-                </button>
               </div>
             </div>
           </div>

@@ -98,6 +98,19 @@ const UploadPage = () => {
     setRecipients((prev) => prev.filter((r) => r.clientId !== clientId));
   };
 
+  // Live duplicate detection for the Recipients step — one recipient (by
+  // email) can only appear once per envelope, flagged inline as soon as it
+  // collides rather than only when the user clicks Continue.
+  const duplicateEmailIds = new Set();
+  {
+    const byEmail = {};
+    recipients.forEach((r) => {
+      const email = r.email.trim().toLowerCase();
+      if (email) (byEmail[email] ||= []).push(r.clientId);
+    });
+    Object.values(byEmail).forEach((ids) => ids.length > 1 && ids.forEach((id) => duplicateEmailIds.add(id)));
+  }
+
   const goToStep3 = async () => {
     if (recipients.length === 0) {
       toast.error('Add at least one recipient');
@@ -107,14 +120,8 @@ const UploadPage = () => {
       toast.error('Every recipient needs a full legal name and email');
       return;
     }
-    const emails = recipients.map((r) => r.email.trim().toLowerCase());
-    if (new Set(emails).size !== emails.length) {
-      toast.error('Each recipient must have a distinct email');
-      return;
-    }
-    const roles = recipients.map((r) => r.roleLabel);
-    if (new Set(roles).size !== roles.length) {
-      toast.error('Each recipient must have a different role — two recipients can\'t share the same role');
+    if (duplicateEmailIds.size > 0) {
+      toast.error('Each recipient must have a distinct email.');
       return;
     }
     if (recipients.some((r) => r.identityVerification === 'account_password' && !r.accessPassword.trim())) {
@@ -321,11 +328,23 @@ const UploadPage = () => {
                 </div>
                 <div>
                   <label className={styles.label}>Email</label>
-                  <input className={styles.input} type="email" value={r.email} onChange={(e) => updateRecipient(r.clientId, { email: e.target.value })} />
+                  <input
+                    className={`${styles.input} ${duplicateEmailIds.has(r.clientId) ? styles.inputError : ''}`}
+                    type="email"
+                    value={r.email}
+                    onChange={(e) => updateRecipient(r.clientId, { email: e.target.value })}
+                  />
+                  {duplicateEmailIds.has(r.clientId) && (
+                    <p className={styles.fieldError}>This email is already used by another recipient — one user, one role.</p>
+                  )}
                 </div>
                 <div>
                   <label className={styles.label}>Role</label>
-                  <select className={styles.input} value={r.roleLabel} onChange={(e) => updateRecipient(r.clientId, { roleLabel: e.target.value })}>
+                  <select
+                    className={styles.input}
+                    value={r.roleLabel}
+                    onChange={(e) => updateRecipient(r.clientId, { roleLabel: e.target.value })}
+                  >
                     {ROLE_OPTIONS.map((role) => (
                       <option key={role} value={role}>{role}</option>
                     ))}
@@ -378,7 +397,13 @@ const UploadPage = () => {
 
           <div className={styles.btnRow}>
             <button className={styles.btnGhost} onClick={() => setStep(1)}>Back</button>
-            <button className={styles.btnPrimary} onClick={goToStep3}>Continue</button>
+            <button
+              className={styles.btnPrimary}
+              onClick={goToStep3}
+              disabled={duplicateEmailIds.size > 0}
+            >
+              Continue
+            </button>
           </div>
         </div>
       )}
