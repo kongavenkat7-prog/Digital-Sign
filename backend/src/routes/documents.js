@@ -148,10 +148,6 @@ router.post('/documents/envelope', async (req, res) => {
     if (new Set(emails).size !== emails.length) {
       return res.status(400).json({ error: 'Each recipient must have a distinct email' });
     }
-    const roleLabels = recipients.map((r) => r.roleLabel || '');
-    if (new Set(roleLabels).size !== roleLabels.length) {
-      return res.status(400).json({ error: 'Each recipient must have a different role' });
-    }
     if (recipients.some((r) => r.identityVerification === 'account_password' && !r.accessPassword)) {
       return res.status(400).json({ error: 'An access password is required for recipients using Account login + password' });
     }
@@ -254,6 +250,43 @@ router.post('/documents/envelope', async (req, res) => {
   } catch (error) {
     console.error('Envelope creation error:', error);
     res.status(500).json({ error: 'Failed to create envelope', message: error.message });
+  }
+});
+
+// Update retention/legal-hold — admin-only (this router sits behind
+// requireAuth), never exposed on the public token-based signing routes.
+router.post('/documents/:documentId/retention', async (req, res) => {
+  try {
+    const { documentId } = req.params;
+    const { retentionDays, legalHold, reason } = req.body;
+
+    const signatureRecord = await SignatureRecord.findOne({ documentId });
+    if (!signatureRecord) return res.status(404).json({ error: 'Document not found' });
+
+    if (retentionDays !== undefined) {
+      const days = Number(retentionDays);
+      if (!Number.isFinite(days) || days < 1) {
+        return res.status(400).json({ error: 'retentionDays must be a positive number' });
+      }
+      signatureRecord.retentionDays = days;
+    }
+    if (legalHold !== undefined) signatureRecord.legalHold = Boolean(legalHold);
+    signatureRecord.retentionReason = reason || '';
+    await signatureRecord.save();
+
+    const auditLogId = await createAuditLog(
+      documentId,
+      'Retention Updated',
+      { retentionDays: signatureRecord.retentionDays, legalHold: signatureRecord.legalHold, reason: signatureRecord.retentionReason },
+      req,
+      { userName: CURRENT_USER.name, documentName: signatureRecord.title || signatureRecord.fileName }
+    );
+    signatureRecord.auditTrail.push(auditLogId);
+    await signatureRecord.save();
+
+    res.status(200).json({ success: true, data: signatureRecord });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update retention', message: error.message });
   }
 });
 

@@ -22,6 +22,7 @@ const AUDIT_ACTION_TYPES = [
   'OTP Verified',
   'Password Verified',
   'Recipient Signed',
+  'Retention Updated',
   'Envelope Completed',
 ];
 

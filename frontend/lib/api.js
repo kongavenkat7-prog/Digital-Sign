@@ -56,6 +56,9 @@ export const api = {
   setSigners: (documentId, signers) =>
     apiClient.post(`/api/documents/${documentId}/signers`, { signers }),
 
+  updateRetention: (documentId, payload) =>
+    apiClient.post(`/api/documents/${documentId}/retention`, payload),
+
   declineDocument: (documentId, reason) =>
     apiClient.post(`/api/documents/${documentId}/decline`, { reason }),
 
@@ -108,6 +111,19 @@ export const api = {
 
   // Dashboard
   getDashboardStats: () => apiClient.get('/api/dashboard/stats'),
+
+  // Integrations
+  listApiKeys: () => apiClient.get('/api/integrations/api-keys'),
+  createApiKey: (name) => apiClient.post('/api/integrations/api-keys', { name }),
+  revokeApiKey: (id) => apiClient.delete(`/api/integrations/api-keys/${id}`),
+  listWebhooks: () => apiClient.get('/api/integrations/webhooks'),
+  createWebhook: (url, events) => apiClient.post('/api/integrations/webhooks', { url, events }),
+  removeWebhook: (id) => apiClient.delete(`/api/integrations/webhooks/${id}`),
+  listDeliveryLogs: () => apiClient.get('/api/integrations/delivery-logs'),
+
+  // Settings
+  getPasswordPermissions: () => apiClient.get('/api/settings/password-permissions'),
+  updatePasswordPermissions: (payload) => apiClient.put('/api/settings/password-permissions', payload),
 
   // Auth
   getCurrentUser: () => apiClient.get('/api/auth/me'),

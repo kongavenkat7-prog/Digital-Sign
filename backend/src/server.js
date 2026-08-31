@@ -20,6 +20,8 @@ const auditLogsRouter = require('./routes/auditLogs');
 const dashboardRouter = require('./routes/dashboard');
 const authRouter = require('./routes/auth');
 const signingRouter = require('./routes/signing');
+const integrationsRouter = require('./routes/integrations');
+const settingsRouter = require('./routes/settings');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -56,6 +58,8 @@ app.use('/api/users', requireAuth, usersRouter);
 app.use('/api/roles', requireAuth, rolesRouter);
 app.use('/api/audit-logs', requireAuth, auditLogsRouter);
 app.use('/api/dashboard', requireAuth, dashboardRouter);
+app.use('/api/integrations', requireAuth, integrationsRouter);
+app.use('/api/settings', requireAuth, settingsRouter);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

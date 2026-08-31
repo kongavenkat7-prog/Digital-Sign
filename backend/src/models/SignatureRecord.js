@@ -98,6 +98,13 @@ const signatureRecordSchema = new Schema({
   createdAt: { type: Date, default: Date.now },
   signedAt: Date,
   verifiedAt: Date,
+
+  // Retention / lifecycle — admin-only (set from the Dashboard, never by a
+  // recipient on the public signing page): how long the document binary is
+  // kept before purge, and an optional hold that suspends that purge.
+  retentionDays: { type: Number, default: 90 },
+  legalHold: { type: Boolean, default: false },
+  retentionReason: { type: String, default: '' },
 });
 
 const SignatureRecord = mongoose.model('SignatureRecord', signatureRecordSchema);

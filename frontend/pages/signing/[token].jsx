@@ -360,6 +360,11 @@ const SigningPage = () => {
             </div>
           )}
 
+          <div className={styles.appearanceBox} style={{ textAlign: 'left' }}>
+            <div className={styles.appearanceLabel}>Reason for signing</div>
+            <div className={styles.appearanceMeta}>{reason}</div>
+          </div>
+
           <button className={styles.btnPrimaryFull} style={{ marginTop: 20 }} onClick={() => setStage('done')}>
             Continue to Download →
           </button>
@@ -483,8 +488,16 @@ const SigningPage = () => {
           {stage === 'authenticate' && (
             <>
               <h2>Authenticate</h2>
-              <label className={styles.label}>Reason (optional)</label>
-              <textarea className={styles.textarea} value={reason} onChange={(e) => setReason(e.target.value)} />
+              <label className={styles.label}>
+                Reason <span className={styles.required}>*</span>
+              </label>
+              <textarea
+                className={styles.textarea}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Why are you signing this document?"
+              />
+              {!reason.trim() && <p className={styles.fieldError}>A reason is required before you can sign.</p>}
 
               {info.signer.identityVerification === 'account_password' ? (
                 <div className={styles.otpBox}>
@@ -549,7 +562,7 @@ const SigningPage = () => {
 
               <div className={styles.btnRow}>
                 <button className={styles.btnGhost} onClick={() => setStage('fields')}>Back</button>
-                <button className={styles.btnPrimaryFull} disabled={!otpVerified} onClick={() => setStage('sign')}>
+                <button className={styles.btnPrimaryFull} disabled={!otpVerified || !reason.trim()} onClick={() => setStage('sign')}>
                   Continue to sign →
                 </button>
               </div>
