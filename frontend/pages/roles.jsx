@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import AppShell from '@/components/AppShell';
+import AdminTabs from '@/components/AdminTabs';
 import dashboardStyles from '@/styles/Dashboard.module.css';
 import styles from '@/styles/Roles.module.css';
 import { api } from '@/lib/api';
@@ -53,7 +54,7 @@ const RolesPage = () => {
 
   return (
     <AppShell
-      active="roles"
+      active="admin"
       title="Role Privileges & Permissions"
       subtitle="Define and override system-wide feature permissions across core organizational roles."
       actions={
@@ -74,6 +75,7 @@ const RolesPage = () => {
         </>
       }
     >
+      <AdminTabs />
       {loading ? (
         <p style={{ color: 'var(--sv-text-secondary)', fontSize: 13.5 }}>Loading permissions…</p>
       ) : (

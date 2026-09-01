@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import AppShell from '@/components/AppShell';
+import AdminTabs from '@/components/AdminTabs';
 import styles from '@/styles/Settings.module.css';
 import { api } from '@/lib/api';
 import { useRequireAuth } from '@/lib/auth';
@@ -84,10 +85,11 @@ const IntegrationsPage = () => {
 
   return (
     <AppShell
-      active="integrations"
+      active="admin"
       title="Integrations"
       subtitle="API keys, HMAC-signed webhook endpoints, delivery logs and embedded signing are managed here."
     >
+      <AdminTabs />
       <div className={styles.card}>
         <h2>API Keys</h2>
         <p className={styles.hint}>Used to call the SignVault API directly. The full key is shown once, right after creation.</p>
