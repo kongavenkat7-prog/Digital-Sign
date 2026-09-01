@@ -34,7 +34,7 @@ const icons = {
       <path d="m9 12 2 2 4-4" />
     </svg>
   ),
-  roles: (
+  admin: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <circle cx="9" cy="8" r="3" />
       <path d="M3 20c.8-3.4 3-5.2 6-5.2s5.2 1.8 6 5.2" />
@@ -42,31 +42,17 @@ const icons = {
       <path d="M17 10.5v-1a1.5 1.5 0 0 1 3 0v1" />
     </svg>
   ),
-  password: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="8" cy="15" r="4" />
-      <path d="M11 12l9-9" />
-      <path d="M17 6l3 3" />
-      <path d="M14 9l3 3" />
-    </svg>
-  ),
-  integrations: (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M9 3v4M15 3v4" />
-      <rect x="6" y="7" width="12" height="8" rx="2" />
-      <path d="M9 19v-4M15 19v-4" />
-    </svg>
-  ),
 };
 
+// Consolidated per the sidebar sketch: User Management, Role Privileges,
+// Password Permissions, and Integrations live under one "Administration"
+// section (see components/AdminTabs.jsx for its sub-navigation) instead of
+// being separate top-level items.
 const NAV_ITEMS = [
   { key: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
   { key: 'sign', label: 'Document Sign', href: '/documents', icon: 'sign' },
-  { key: 'users', label: 'User Management', href: '/users', icon: 'users' },
+  { key: 'admin', label: 'Administration', href: '/users', icon: 'admin' },
   { key: 'audit', label: 'Audit Logs', href: '/audit-logs', icon: 'audit' },
-  { key: 'roles', label: 'Role Privileges', href: '/roles', icon: 'roles' },
-  { key: 'password', label: 'Password Permissions', href: '/password-permissions', icon: 'password' },
-  { key: 'integrations', label: 'Integrations', href: '/integrations', icon: 'integrations' },
 ];
 
 const initials = (name) =>
@@ -96,20 +82,11 @@ const Sidebar = ({ active }) => {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.logoRow}>
-        <div className={styles.logoIcon}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2">
-            <rect x="4" y="10" width="16" height="10" rx="2" />
-            <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-          </svg>
-        </div>
-        <div className={styles.logoText}>
-          <h1>SignVault</h1>
-          <span>ENTERPRISE SECURITY</span>
-        </div>
-      </div>
-      <div className={styles.orgRow}>
         <div className={styles.orgBadge}>R</div>
-        <span className={styles.orgName}>Rynovate Technologies Pvt. Ltd.</span>
+        <div className={styles.logoText}>
+          <h1 className={styles.orgTitle}>Rynovate Technologies Pvt. Ltd.</h1>
+          <span className={styles.productName}>SignVault</span>
+        </div>
       </div>
 
       <nav className={styles.nav}>

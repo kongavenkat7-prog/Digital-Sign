@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import AppShell from '@/components/AppShell';
+import AdminTabs from '@/components/AdminTabs';
 import styles from '@/styles/Settings.module.css';
 import { api } from '@/lib/api';
 import { useRequireAuth } from '@/lib/auth';
@@ -34,7 +35,8 @@ const PasswordPermissionsPage = () => {
 
   if (!settings) {
     return (
-      <AppShell active="password" title="Password Permissions">
+      <AppShell active="admin" title="Password Permissions">
+        <AdminTabs />
         <p>Loading…</p>
       </AppShell>
     );
@@ -42,10 +44,11 @@ const PasswordPermissionsPage = () => {
 
   return (
     <AppShell
-      active="password"
+      active="admin"
       title="Password Permissions"
       subtitle="Controls which identity-verification methods recipients can use before signing."
     >
+      <AdminTabs />
       <div className={styles.card}>
         <h2>Identity verification methods</h2>
         <p className={styles.hint}>At least one method must stay enabled — recipients can't sign without verifying identity somehow.</p>

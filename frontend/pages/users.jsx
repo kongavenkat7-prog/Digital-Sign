@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import AppShell from '@/components/AppShell';
+import AdminTabs from '@/components/AdminTabs';
 import Badge, { roleTone, statusTone } from '@/components/Badge';
 import styles from '@/styles/Users.module.css';
 import dashboardStyles from '@/styles/Dashboard.module.css';
@@ -82,7 +83,7 @@ const UsersPage = () => {
 
   return (
     <AppShell
-      active="users"
+      active="admin"
       title="User Roles Management"
       subtitle="Provision users, assign system roles, and audit access credentials."
       actions={
@@ -91,6 +92,7 @@ const UsersPage = () => {
         </button>
       }
     >
+      <AdminTabs />
       <div className={styles.toolbar}>
         <input
           className={styles.search}
