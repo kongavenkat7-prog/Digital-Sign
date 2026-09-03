@@ -176,3 +176,143 @@
   color: var(--sv-sidebar-text);
   font-size: 11px;
 }
+
+.footerMenu {
+  position: absolute;
+  bottom: 40px;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--sv-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  min-width: 190px;
+  padding: 6px;
+  z-index: 30;
+}
+
+.footerMenuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 9px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sv-text);
+  cursor: pointer;
+}
+
+.footerMenuItem:hover {
+  background: #f3f4f6;
+}
+
+.footerMenuDanger {
+  color: #dc2626;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.modalTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--sv-text);
+  margin: 0 0 18px 0;
+}
+
+.modalAvatarRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.avatarLarge {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--sv-primary-light);
+  color: var(--sv-primary-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.uploadLabel {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--sv-primary);
+  cursor: pointer;
+  border: 1px solid var(--sv-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.modalLabel {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--sv-text);
+  margin-bottom: 6px;
+}
+
+.modalInput {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--sv-border);
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modalCancel {
+  background: transparent;
+  border: 1px solid var(--sv-border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--sv-text);
+}
+
+.modalSave {
+  background: var(--sv-primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.modalSave:disabled {
+  opacity: 0.6;
+}

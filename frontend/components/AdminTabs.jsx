@@ -7,7 +7,7 @@ const TABS = [
   { href: '/users', label: 'User Management' },
   { href: '/roles', label: 'Role Privileges' },
   { href: '/password-permissions', label: 'Password Permissions' },
-  { href: '/integrations', label: 'Integrations' },
+  { href: '/settings', label: 'Settings' },
 ];
 
 // Horizontal sub-navigation shown at the top of every Administration page —

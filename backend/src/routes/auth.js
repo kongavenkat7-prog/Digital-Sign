@@ -56,5 +56,32 @@ router.get('/me', requireAuth, async (req, res) => {
   }
 });
 
+// Update the logged-in admin's own display name / avatar (not other users —
+// that's User Management, this is "my profile" from the sidebar menu).
+router.put('/me', requireAuth, async (req, res) => {
+  try {
+    const { name, avatarDataUrl } = req.body;
+    if (name !== undefined && !String(name).trim()) {
+      return res.status(400).json({ error: 'Name cannot be empty' });
+    }
+
+    const set = {};
+    if (name !== undefined) set.name = String(name).trim();
+    if (avatarDataUrl !== undefined) set.avatarDataUrl = avatarDataUrl;
+
+    const setOnInsert = { email: ADMIN_EMAIL, role: CURRENT_USER.role, title: CURRENT_USER.title };
+    if (!set.name) setOnInsert.name = CURRENT_USER.name;
+
+    const user = await User.findOneAndUpdate(
+      { email: ADMIN_EMAIL },
+      { $set: set, $setOnInsert: setOnInsert },
+      { upsert: true, new: true }
+    );
+    res.status(200).json({ success: true, data: user });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update profile', message: error.message });
+  }
+});
+
 module.exports = router;
 module.exports.CURRENT_USER = CURRENT_USER;

@@ -74,8 +74,6 @@ const LoginPage = () => {
             {submitting ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
-
-        <div className={styles.footnote}>Vault Node Active: US-EAST</div>
       </div>
     </div>
   );

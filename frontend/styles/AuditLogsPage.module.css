@@ -89,6 +89,13 @@
   font-size: 13.5px;
 }
 
+.mono {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: var(--sv-text-secondary);
+  white-space: nowrap;
+}
+
 @media print {
   .toolbar { display: none !important; }
 }
