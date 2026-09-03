@@ -85,11 +85,10 @@ export const api = {
   // Global audit logs
   listAuditLogs: (params) => apiClient.get('/api/audit-logs', { params }),
 
-  exportAuditLogsUrl: (params) => {
-    const cleaned = Object.fromEntries(Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== ''));
-    const search = new URLSearchParams(cleaned).toString();
-    return `${apiClient.defaults.baseURL}/api/audit-logs/export${search ? `?${search}` : ''}`;
-  },
+  // /api/audit-logs/export requires a bearer token, so it can't be a plain
+  // link/window.open — the browser wouldn't attach the auth header. Fetch it
+  // as an authenticated blob instead; the caller triggers the save.
+  exportAuditLogs: (params) => apiClient.get('/api/audit-logs/export', { params, responseType: 'blob' }),
 
   // Downloads
   downloadSigned: (documentId) =>

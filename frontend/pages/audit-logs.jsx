@@ -28,12 +28,11 @@ const CATEGORIES = {
   'User Management': ['User Added', 'User Updated', 'Privilege Changed'],
 };
 
-const shortHash = (hash) => (hash ? `${hash.slice(0, 10)}…${hash.slice(-6)}` : '—');
-
 const AuditLogsPage = () => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All Categories');
@@ -85,26 +84,41 @@ const AuditLogsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, actionType, actor, documentId, from, to, search]);
 
-  const handleExportAuditPack = () => {
-    const url = api.exportAuditLogsUrl({
-      actionType: actionType !== 'All Activities' ? actionType : undefined,
-      actor: actor !== 'All Actors' ? actor : undefined,
-      documentId: documentId !== 'All Envelopes' ? documentId : undefined,
-      from: from || undefined,
-      to: to || undefined,
-    });
-    window.open(url, '_blank');
+  const handleExportAuditPack = async () => {
+    try {
+      setExporting(true);
+      const res = await api.exportAuditLogs({
+        actionType: actionType !== 'All Activities' ? actionType : undefined,
+        actor: actor !== 'All Actors' ? actor : undefined,
+        documentId: documentId !== 'All Envelopes' ? documentId : undefined,
+        from: from || undefined,
+        to: to || undefined,
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'signvault-audit-logs.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Audit pack exported');
+    } catch {
+      toast.error('Failed to export audit pack');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleVerifyChain = async () => {
     try {
       setVerifying(true);
       const res = await api.verifyAuditChainIntegrity();
-      const { intact, totalChains, totalRecords, invalidChains } = res.data.data;
+      const { intact, totalRecords, brokenRecords } = res.data.data;
       if (intact) {
-        toast.success(`Chain intact — ${totalChains} chain(s), ${totalRecords} record(s) verified.`);
+        toast.success(`Chain intact — ${totalRecords} record(s) verified.`);
       } else {
-        toast.error(`Chain integrity failure in ${invalidChains.length} chain(s). Investigate immediately.`);
+        toast.error(`Chain integrity failure in ${brokenRecords.length} record(s). Investigate immediately.`);
       }
     } catch {
       toast.error('Failed to verify chain integrity');
@@ -120,8 +134,8 @@ const AuditLogsPage = () => {
       subtitle="Chronological, tamper-evident log of every administrative, viewing, and signature action."
       actions={
         <>
-          <button className={styles.field} onClick={handleExportAuditPack}>
-            Export audit pack
+          <button className={styles.btnPrimary} disabled={exporting} onClick={handleExportAuditPack}>
+            {exporting ? 'Exporting…' : 'Export audit pack'}
           </button>
           <button className={styles.field} disabled={verifying} onClick={handleVerifyChain}>
             {verifying ? 'Verifying…' : 'Verify chain integrity'}
@@ -169,39 +183,41 @@ const AuditLogsPage = () => {
         <input type="date" className={styles.field} value={to} onChange={(e) => setTo(e.target.value)} title="To" />
       </div>
 
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>WHEN (UTC)</th>
-            <th>WHAT HAPPENED</th>
-            <th>WHO</th>
-            <th>SOURCE IP</th>
-            <th>CHAIN HASH</th>
-          </tr>
-        </thead>
-        <tbody>
-          {!loading && logs.length === 0 && (
+      <div className={styles.tableScroll}>
+        <table className={styles.table}>
+          <thead>
             <tr>
-              <td colSpan={6} className={styles.empty}>
-                No audit events match these filters.
-              </td>
+              <th>#</th>
+              <th>WHEN (UTC)</th>
+              <th>WHAT HAPPENED</th>
+              <th>WHO</th>
+              <th>SOURCE IP</th>
+              <th>CHAIN HASH</th>
             </tr>
-          )}
-          {logs.map((log, index) => (
-            <tr key={log._id}>
-              <td>{index + 1}</td>
-              <td className={styles.timestamp}>{new Date(log.timestamp).toISOString().replace('T', ' ').slice(0, 19)}</td>
-              <td>{log.action}</td>
-              <td>{log.userName}</td>
-              <td className={styles.ip}>{log.ipAddress || '—'}</td>
-              <td className={styles.mono} title={log.hash}>
-                {shortHash(log.hash)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {!loading && logs.length === 0 && (
+              <tr>
+                <td colSpan={6} className={styles.empty}>
+                  No audit events match these filters.
+                </td>
+              </tr>
+            )}
+            {logs.map((log, index) => (
+              <tr key={log._id}>
+                <td>{index + 1}</td>
+                <td className={styles.timestamp}>
+                  {new Date(log.timestamp).toISOString().replace('T', ' ').slice(0, 19)}
+                </td>
+                <td>{log.action}</td>
+                <td>{log.userName}</td>
+                <td className={styles.ip}>{log.ipAddress || '—'}</td>
+                <td className={styles.mono}>{log.hash || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </AppShell>
   );
 };

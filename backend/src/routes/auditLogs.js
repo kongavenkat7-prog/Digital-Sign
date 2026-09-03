@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const { AuditLog } = require('../models/AuditLog');
-const { verifyAuditChain } = require('../utils/audit');
+const { verifyFullAuditTrail } = require('../utils/audit');
 
 const router = Router();
 
@@ -93,38 +93,20 @@ router.get('/filters', async (req, res) => {
   }
 });
 
-// Re-derives every document's hash chain (plus the documentId-less/system
-// chain) from stored fields and checks it against the committed hash —
-// "Verify chain integrity" from the Audit Trail screen.
+// Re-derives the full audit trail's hash chain from stored fields and checks
+// it against the committed hash — "Verify chain integrity" from the Audit
+// Trail screen.
 router.post('/verify-all', async (req, res) => {
   try {
-    const allLogs = await AuditLog.find({}).sort({ timestamp: 1 });
-
-    const chains = new Map();
-    for (const log of allLogs) {
-      const key = log.documentId || '__system__';
-      if (!chains.has(key)) chains.set(key, []);
-      chains.get(key).push(log);
-    }
-
-    let validChains = 0;
-    const invalidChains = [];
-    for (const [key, logs] of chains.entries()) {
-      if (verifyAuditChain(logs)) {
-        validChains += 1;
-      } else {
-        invalidChains.push(key);
-      }
-    }
+    const allLogs = await AuditLog.find({}).sort({ timestamp: 1, _id: 1 });
+    const result = verifyFullAuditTrail(allLogs);
 
     res.status(200).json({
       success: true,
       data: {
-        totalChains: chains.size,
-        totalRecords: allLogs.length,
-        validChains,
-        invalidChains,
-        intact: invalidChains.length === 0,
+        intact: result.valid,
+        totalRecords: result.totalRecords,
+        brokenRecords: result.failures,
       },
     });
   } catch (error) {

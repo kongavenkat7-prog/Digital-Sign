@@ -15,20 +15,24 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--sv-border);
   flex-wrap: wrap;
 }
 
 .headerLeft h1 {
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   color: var(--sv-text);
-  margin-bottom: 4px;
+  margin-bottom: 5px;
 }
 
 .headerLeft p {
   font-size: 13.5px;
   color: var(--sv-text-secondary);
+  line-height: 1.5;
 }
 
 .headerRight {
@@ -36,21 +40,4 @@
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-}
-
-.vaultBadge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  color: var(--sv-text-secondary);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.vaultDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--sv-success);
 }

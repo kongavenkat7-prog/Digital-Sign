@@ -13,10 +13,13 @@
   color: var(--sv-text-secondary);
   font-size: 13px;
   font-weight: 600;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .tab:hover {
   color: var(--sv-text);
+  border-color: var(--sv-primary);
+  background: var(--sv-primary-light);
 }
 
 .tabActive {
