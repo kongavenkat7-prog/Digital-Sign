@@ -181,7 +181,7 @@ const DashboardPage = () => {
   const retentionDoc = documents.find((d) => d.documentId === retentionDocId);
 
   return (
-    <AppShell active="dashboard" title="Envelopes" subtitle="Rynovate Technologies Pvt. Ltd." actions={
+    <AppShell active="dashboard" title="Envelopes" subtitle="Rynovate" actions={
       <button className={styles.btnPrimary} onClick={() => router.push('/upload')}>+ New envelope</button>
     }>
       <div className={styles.tileRow}>

@@ -94,13 +94,20 @@ const PasswordPermissionsPage = () => {
             <span className={styles.toggleKnob} />
           </button>
         </div>
+
+        <button className={styles.btnPrimary} disabled={saving} onClick={handleSave} style={{ marginTop: 8 }}>
+          {saving ? 'Saving…' : 'Save changes'}
+        </button>
       </div>
 
       <div className={styles.card}>
         <h2>Password policy</h2>
         <p className={styles.hint}>Applies to access passwords set for the "Account login + password" method.</p>
+
         <div className={styles.row} style={{ alignItems: 'center' }}>
-          <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--sv-text)' }}>Minimum length</label>
+          <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--sv-text)', flex: '0 0 200px' }}>
+            Minimum length
+          </label>
           <input
             type="number"
             min={4}
@@ -111,14 +118,83 @@ const PasswordPermissionsPage = () => {
             onChange={(e) => update({ minPasswordLength: Number(e.target.value) })}
           />
         </div>
-        <p className={styles.hint} style={{ margin: 0 }}>
-          Not yet enforced on the New Envelope wizard's access-password field — this sets the stored policy value only.
-        </p>
-      </div>
 
-      <button className={styles.btnPrimary} disabled={saving} onClick={handleSave}>
-        {saving ? 'Saving…' : 'Save changes'}
-      </button>
+        <div className={styles.row} style={{ alignItems: 'center' }}>
+          <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--sv-text)', flex: '0 0 200px' }}>
+            Password expires after (days)
+          </label>
+          <input
+            type="number"
+            min={1}
+            className={styles.input}
+            style={{ flex: '0 0 100px' }}
+            value={settings.passwordExpiresAfterDays}
+            onChange={(e) => update({ passwordExpiresAfterDays: Number(e.target.value) })}
+          />
+        </div>
+
+        <div className={styles.toggleRow}>
+          <div className={styles.toggleLabel}>Require uppercase letter</div>
+          <button
+            type="button"
+            className={`${styles.toggle} ${settings.requireUppercase ? styles.toggleOn : ''}`}
+            onClick={() => update({ requireUppercase: !settings.requireUppercase })}
+          >
+            <span className={styles.toggleKnob} />
+          </button>
+        </div>
+
+        <div className={styles.toggleRow}>
+          <div className={styles.toggleLabel}>Require lowercase letter</div>
+          <button
+            type="button"
+            className={`${styles.toggle} ${settings.requireLowercase ? styles.toggleOn : ''}`}
+            onClick={() => update({ requireLowercase: !settings.requireLowercase })}
+          >
+            <span className={styles.toggleKnob} />
+          </button>
+        </div>
+
+        <div className={styles.toggleRow}>
+          <div className={styles.toggleLabel}>Require number</div>
+          <button
+            type="button"
+            className={`${styles.toggle} ${settings.requireNumber ? styles.toggleOn : ''}`}
+            onClick={() => update({ requireNumber: !settings.requireNumber })}
+          >
+            <span className={styles.toggleKnob} />
+          </button>
+        </div>
+
+        <div className={styles.toggleRow}>
+          <div className={styles.toggleLabel}>Require symbol</div>
+          <button
+            type="button"
+            className={`${styles.toggle} ${settings.requireSymbol ? styles.toggleOn : ''}`}
+            onClick={() => update({ requireSymbol: !settings.requireSymbol })}
+          >
+            <span className={styles.toggleKnob} />
+          </button>
+        </div>
+
+        <div className={styles.toggleRow}>
+          <div>
+            <div className={styles.toggleLabel}>Reset at first login</div>
+            <div className={styles.toggleHint}>Recipient must set a new password the first time they sign in.</div>
+          </div>
+          <button
+            type="button"
+            className={`${styles.toggle} ${settings.resetAtFirstLogin ? styles.toggleOn : ''}`}
+            onClick={() => update({ resetAtFirstLogin: !settings.resetAtFirstLogin })}
+          >
+            <span className={styles.toggleKnob} />
+          </button>
+        </div>
+
+        <button className={styles.btnPrimary} disabled={saving} onClick={handleSave} style={{ marginTop: 16 }}>
+          {saving ? 'Saving…' : 'Save password policy'}
+        </button>
+      </div>
     </AppShell>
   );
 };

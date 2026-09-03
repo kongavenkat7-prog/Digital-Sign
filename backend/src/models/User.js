@@ -7,6 +7,7 @@ const userSchema = new Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   title: { type: String, default: '' },
+  avatarDataUrl: { type: String, default: '' },
   role: { type: String, enum: SYSTEM_ROLES, default: 'Lead' },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   lastActiveAt: { type: Date, default: Date.now },

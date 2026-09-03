@@ -22,13 +22,7 @@ const AppShell = ({ active, title, subtitle, actions, children }) => {
             <h1>{title}</h1>
             {subtitle && <p>{subtitle}</p>}
           </div>
-          <div className={styles.headerRight}>
-            <span className={styles.vaultBadge}>
-              <span className={styles.vaultDot} />
-              Vault Node Active: US-EAST
-            </span>
-            {actions}
-          </div>
+          <div className={styles.headerRight}>{actions}</div>
         </div>
         {children}
       </main>

@@ -86,7 +86,8 @@ export const api = {
   listAuditLogs: (params) => apiClient.get('/api/audit-logs', { params }),
 
   exportAuditLogsUrl: (params) => {
-    const search = new URLSearchParams(params).toString();
+    const cleaned = Object.fromEntries(Object.entries(params || {}).filter(([, v]) => v !== undefined && v !== ''));
+    const search = new URLSearchParams(cleaned).toString();
     return `${apiClient.defaults.baseURL}/api/audit-logs/export${search ? `?${search}` : ''}`;
   },
 
@@ -124,9 +125,18 @@ export const api = {
   // Settings
   getPasswordPermissions: () => apiClient.get('/api/settings/password-permissions'),
   updatePasswordPermissions: (payload) => apiClient.put('/api/settings/password-permissions', payload),
+  getBranding: () => apiClient.get('/api/settings/branding'),
+  updateBranding: (payload) => apiClient.put('/api/settings/branding', payload),
+  getRetentionSecurity: () => apiClient.get('/api/settings/retention-security'),
+  updateRetentionSecurity: (payload) => apiClient.put('/api/settings/retention-security', payload),
+
+  // Audit log filters + chain verification
+  getAuditLogFilters: () => apiClient.get('/api/audit-logs/filters'),
+  verifyAuditChainIntegrity: () => apiClient.post('/api/audit-logs/verify-all'),
 
   // Auth
   getCurrentUser: () => apiClient.get('/api/auth/me'),
+  updateCurrentUser: (payload) => apiClient.put('/api/auth/me', payload),
 
   // Public, token-gated recipient signing (no login) — routes/signing.js
   resolveSigningToken: (token) => apiClient.get(`/api/signing/${token}`),
