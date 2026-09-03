@@ -26,6 +26,10 @@ const settingsRouter = require('./routes/settings');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Behind a reverse proxy/load balancer, req.ip otherwise resolves to the
+// proxy's own address rather than the real client IP recorded on audit logs.
+app.set('trust proxy', 1);
+
 // ==================== MIDDLEWARE ====================
 app.use(helmet());
 app.use(compression());

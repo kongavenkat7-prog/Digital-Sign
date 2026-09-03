@@ -52,7 +52,7 @@ button.field:disabled {
 
 .table {
   width: 100%;
-  min-width: 920px;
+  min-width: 760px;
   border-collapse: collapse;
 }
 
@@ -75,8 +75,76 @@ button.field:disabled {
 
 .table tr:last-child td { border-bottom: none; }
 
+.row {
+  cursor: pointer;
+}
+
 .table tbody tr:hover td {
   background: #fafbff;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+  width: 560px;
+  max-width: 100%;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.modalTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--sv-text);
+  margin: 0 0 18px 0;
+}
+
+.detailList {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 10px 14px;
+  margin: 0 0 20px 0;
+}
+
+.detailList dt {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sv-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding-top: 2px;
+}
+
+.detailList dd {
+  margin: 0;
+  font-size: 13px;
+  color: var(--sv-text);
+  word-break: break-all;
+}
+
+.detailsJson {
+  background: #f9fafb;
+  border: 1px solid var(--sv-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
 }
 
 .timestamp {

@@ -28,11 +28,14 @@ const CATEGORIES = {
   'User Management': ['User Added', 'User Updated', 'Privilege Changed'],
 };
 
+const shortHash = (hash) => (hash ? `${hash.slice(0, 24)}…` : '—');
+
 const AuditLogsPage = () => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [selectedLog, setSelectedLog] = useState(null);
 
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All Categories');
@@ -71,8 +74,8 @@ const AuditLogsPage = () => {
       const categoryEvents = CATEGORIES[category];
       const rows = categoryEvents ? res.data.data.filter((log) => categoryEvents.includes(log.action)) : res.data.data;
       setLogs(rows);
-    } catch {
-      toast.error('Failed to load audit logs');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to load audit logs');
     } finally {
       setLoading(false);
     }
@@ -103,8 +106,8 @@ const AuditLogsPage = () => {
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
       toast.success('Audit pack exported');
-    } catch {
-      toast.error('Failed to export audit pack');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to export audit pack');
     } finally {
       setExporting(false);
     }
@@ -120,8 +123,8 @@ const AuditLogsPage = () => {
       } else {
         toast.error(`Chain integrity failure in ${brokenRecords.length} record(s). Investigate immediately.`);
       }
-    } catch {
-      toast.error('Failed to verify chain integrity');
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to verify chain integrity');
     } finally {
       setVerifying(false);
     }
@@ -204,7 +207,7 @@ const AuditLogsPage = () => {
               </tr>
             )}
             {logs.map((log, index) => (
-              <tr key={log._id}>
+              <tr key={log._id} className={styles.row} onClick={() => setSelectedLog(log)}>
                 <td>{index + 1}</td>
                 <td className={styles.timestamp}>
                   {new Date(log.timestamp).toISOString().replace('T', ' ').slice(0, 19)}
@@ -212,12 +215,57 @@ const AuditLogsPage = () => {
                 <td>{log.action}</td>
                 <td>{log.userName}</td>
                 <td className={styles.ip}>{log.ipAddress || '—'}</td>
-                <td className={styles.mono}>{log.hash || '—'}</td>
+                <td className={styles.mono}>{shortHash(log.hash)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {selectedLog && (
+        <div className={styles.modalOverlay} onClick={() => setSelectedLog(null)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h2 className={styles.modalTitle}>Audit record details</h2>
+            <dl className={styles.detailList}>
+              <dt>When (UTC)</dt>
+              <dd>{new Date(selectedLog.timestamp).toISOString().replace('T', ' ').slice(0, 19)}</dd>
+
+              <dt>What happened</dt>
+              <dd>{selectedLog.action}</dd>
+
+              <dt>Who</dt>
+              <dd>{selectedLog.userName || '—'}</dd>
+
+              <dt>Envelope</dt>
+              <dd className={styles.mono}>{selectedLog.documentId || '—'}</dd>
+
+              <dt>Source IP</dt>
+              <dd className={styles.mono}>{selectedLog.ipAddress || '—'}</dd>
+
+              <dt>User agent</dt>
+              <dd>{selectedLog.userAgent || '—'}</dd>
+
+              <dt>Previous hash</dt>
+              <dd className={styles.mono}>{selectedLog.prevHash || '—'}</dd>
+
+              <dt>Chain hash</dt>
+              <dd className={styles.mono}>{selectedLog.hash || '—'}</dd>
+
+              {selectedLog.details && Object.keys(selectedLog.details).length > 0 && (
+                <>
+                  <dt>Details</dt>
+                  <dd>
+                    <pre className={styles.detailsJson}>{JSON.stringify(selectedLog.details, null, 2)}</pre>
+                  </dd>
+                </>
+              )}
+            </dl>
+            <button type="button" className={styles.btnPrimary} onClick={() => setSelectedLog(null)}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 };
