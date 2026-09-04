@@ -148,6 +148,23 @@ const describeUserAgent = (ua) => {
  * signature or initials field gets a caption underneath it, the same way the
  * reference product stamps "Digitally signed by X ... Signed from IP | UA".
  */
+/** Attribution block (who/when/where/why) drawn under any stamped field, not just signatures. */
+const drawFieldCaption = (page, font, x, y, signer) => {
+  if (!signer) return;
+  const captionSize = 6.5;
+  let captionY = y - captionSize - 2;
+  const lines = [
+    `Digitally signed by ${signer.name}`,
+    signer.signedAt ? `Date: ${new Date(signer.signedAt).toISOString()}` : null,
+    [signer.ipAddress ? `IP ${signer.ipAddress}` : null, describeUserAgent(signer.userAgent)].filter(Boolean).join(' | ') || null,
+    signer.reason ? `Reason: ${signer.reason}` : null,
+  ].filter(Boolean);
+  for (const line of lines) {
+    page.drawText(line, { x, y: captionY, size: captionSize, font });
+    captionY -= captionSize + 2;
+  }
+};
+
 const stampFields = async (pdfBuffer, fields, signersByEmail = {}) => {
   const pdfDoc = await PDFDocument.load(pdfBuffer);
   const pages = pdfDoc.getPages();
@@ -164,6 +181,7 @@ const stampFields = async (pdfBuffer, fields, signersByEmail = {}) => {
     const boxHeight = (field.heightPct / 100) * height;
     const yTop = height - (field.topPct / 100) * height;
     const y = yTop - boxHeight;
+    const signer = signersByEmail[field.assignedToEmail];
 
     try {
       if (field.type === 'signature' || field.type === 'initials') {
@@ -176,28 +194,16 @@ const stampFields = async (pdfBuffer, fields, signersByEmail = {}) => {
           width: image.width * scale,
           height: image.height * scale,
         });
-
-        const signer = signersByEmail[field.assignedToEmail];
-        if (signer) {
-          const captionSize = 6.5;
-          let captionY = y - captionSize - 2;
-          const lines = [
-            `Digitally signed by ${signer.name}`,
-            signer.signedAt ? `Date: ${new Date(signer.signedAt).toISOString()}` : null,
-            [signer.ipAddress ? `IP ${signer.ipAddress}` : null, describeUserAgent(signer.userAgent)].filter(Boolean).join(' | ') || null,
-          ].filter(Boolean);
-          for (const line of lines) {
-            page.drawText(line, { x, y: captionY, size: captionSize, font });
-            captionY -= captionSize + 2;
-          }
-        }
+        drawFieldCaption(page, font, x, y, signer);
       } else if (field.type === 'checkbox') {
         if (field.value === 'true') {
           page.drawText('X', { x: x + 2, y: y + 2, size: Math.min(boxHeight * 0.8, 14), font });
+          drawFieldCaption(page, font, x, y, signer);
         }
       } else {
         // date / text
         page.drawText(String(field.value), { x, y: y + boxHeight * 0.25, size: Math.min(boxHeight * 0.7, 12), font });
+        drawFieldCaption(page, font, x, y, signer);
       }
     } catch (error) {
       console.error(`Failed to stamp field ${field.fieldId} (${field.type}):`, error);

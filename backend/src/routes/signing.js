@@ -248,6 +248,7 @@ router.post('/signing/:token/sign', async (req, res) => {
         signedAt: s.signedAt,
         ipAddress: s.ipAddress,
         userAgent: s.userAgent,
+        reason: s.reason,
       };
     }
 

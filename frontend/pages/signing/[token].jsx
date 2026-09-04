@@ -182,6 +182,11 @@ const SigningPage = () => {
   const [signResult, setSignResult] = useState(null);
   const [downloading, setDownloading] = useState(null);
 
+  const [signedPdfPages, setSignedPdfPages] = useState([]);
+  const [signedCurrentPage, setSignedCurrentPage] = useState(0);
+  const [signedPreviewLoading, setSignedPreviewLoading] = useState(false);
+  const signedCanvasRef = useRef(null);
+
   useEffect(() => {
     if (!token) return;
     (async () => {
@@ -233,6 +238,45 @@ const SigningPage = () => {
       ctx.drawImage(pageCanvas, 0, 0);
     }
   }, [pdfPages, currentPage]);
+
+  // Once signed, re-fetch the same preview endpoint — it now serves the
+  // actual stamped PDF (s3SignedKey) instead of the in-progress original —
+  // so the recipient can review exactly what they signed before downloading.
+  useEffect(() => {
+    if (stage !== 'signed' || !token || signedPdfPages.length > 0) return;
+    (async () => {
+      try {
+        setSignedPreviewLoading(true);
+        const res = await api.previewSigningDocument(token);
+        const pdf = await pdfjsLib.getDocument({ data: res.data }).promise;
+        const pages = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.3 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+          pages.push(canvas);
+        }
+        setSignedPdfPages(pages);
+      } catch (error) {
+        console.error('Signed PDF preview failed to load:', error);
+      } finally {
+        setSignedPreviewLoading(false);
+      }
+    })();
+  }, [stage, token, signedPdfPages.length]);
+
+  useEffect(() => {
+    if (signedPdfPages.length > 0 && signedCanvasRef.current) {
+      const ctx = signedCanvasRef.current.getContext('2d');
+      const pageCanvas = signedPdfPages[signedCurrentPage];
+      signedCanvasRef.current.width = pageCanvas.width;
+      signedCanvasRef.current.height = pageCanvas.height;
+      ctx.drawImage(pageCanvas, 0, 0);
+    }
+  }, [signedPdfPages, signedCurrentPage]);
 
   useEffect(() => {
     if (resendInMs <= 0) return;
@@ -352,38 +396,81 @@ const SigningPage = () => {
 
   if (stage === 'signed' && signResult) {
     const signedSigField = info.fields.find((f) => f.type === 'signature' && values[f.fieldId]);
+    const reviewReady = !signedPreviewLoading && signedPdfPages.length > 0;
     return (
-      <div className={styles.centered}>
-        <div className={styles.doneCard}>
-          <div className={styles.doneIcon}>✓</div>
-          <h2>Signature recorded</h2>
-          <p>
-            Your signature, its meaning, your identity and the exact timestamp have been written to the tamper-evident
-            audit trail.
-          </p>
+      <div className={styles.page}>
+        <div className={styles.topBar}>
+          <div className={styles.brand}>
+            <strong>SignVault</strong>
+            <span>{info.requestedByOrg}</span>
+          </div>
+        </div>
 
-          {signedSigField && (
-            <div className={styles.appearanceBox} style={{ textAlign: 'left', marginTop: 16 }}>
-              <div className={styles.appearanceLabel}>Your signature</div>
-              <img src={values[signedSigField.fieldId]} alt="Your signature" className={styles.appearanceImg} />
-              <div className={styles.appearanceMeta}>
-                Digitally signed by {info.signer.name}
-                <br />
-                Date: {formatTimestamp(signResult.signedAt || Date.now())}
-                <br />
-                Signed hash: {signResult.signedPdfHash?.slice(0, 24)}…
-              </div>
+        <div className={styles.grid}>
+          <div className={styles.pdfCard}>
+            <div className={styles.canvasWrap}>
+              {signedPreviewLoading && <p className={styles.hint} style={{ padding: 24 }}>Loading your signed document…</p>}
+              <canvas ref={signedCanvasRef} />
             </div>
-          )}
-
-          <div className={styles.appearanceBox} style={{ textAlign: 'left' }}>
-            <div className={styles.appearanceLabel}>Reason for signing</div>
-            <div className={styles.appearanceMeta}>{reason}</div>
+            {signedPdfPages.length > 1 && (
+              <div className={styles.pagination}>
+                <button onClick={() => setSignedCurrentPage((p) => Math.max(0, p - 1))} disabled={signedCurrentPage === 0}>
+                  Previous
+                </button>
+                <span>
+                  Page {signedCurrentPage + 1} / {signedPdfPages.length}
+                </span>
+                <button
+                  onClick={() => setSignedCurrentPage((p) => Math.min(signedPdfPages.length - 1, p + 1))}
+                  disabled={signedCurrentPage === signedPdfPages.length - 1}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
 
-          <button className={styles.btnPrimaryFull} style={{ marginTop: 20 }} onClick={() => setStage('done')}>
-            Continue to Download →
-          </button>
+          <div className={styles.sidePanel}>
+            <h2>Review your signed document</h2>
+            <p className={styles.hint}>
+              Check that your signature and fields landed correctly before downloading. Your identity and the exact
+              timestamp have been written to the tamper-evident audit trail.
+            </p>
+
+            {signedSigField && (
+              <div className={styles.appearanceBox} style={{ textAlign: 'left' }}>
+                <div className={styles.appearanceLabel}>Your signature</div>
+                <img src={values[signedSigField.fieldId]} alt="Your signature" className={styles.appearanceImg} />
+                <div className={styles.appearanceMeta}>
+                  Digitally signed by {info.signer.name}
+                  <br />
+                  Date: {formatTimestamp(signResult.signedAt || Date.now())}
+                  <br />
+                  Signed hash: {signResult.signedPdfHash?.slice(0, 24)}…
+                </div>
+              </div>
+            )}
+
+            <div className={styles.appearanceBox} style={{ textAlign: 'left' }}>
+              <div className={styles.appearanceLabel}>Reason for signing</div>
+              <div className={styles.appearanceMeta}>{reason}</div>
+            </div>
+
+            <div className={styles.checklist}>
+              <div className={reviewReady ? styles.checkDone : ''}>
+                {reviewReady ? '✓' : '○'} Signed document loaded for review
+              </div>
+            </div>
+
+            <button
+              className={styles.btnPrimaryFull}
+              style={{ marginTop: 12 }}
+              disabled={!reviewReady}
+              onClick={() => setStage('done')}
+            >
+              {reviewReady ? 'This is correct — Continue to Download →' : 'Loading your signed document…'}
+            </button>
+          </div>
         </div>
       </div>
     );
