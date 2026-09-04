@@ -12,6 +12,17 @@ if (typeof window !== 'undefined') {
 const STAGES = ['review', 'fields', 'authenticate', 'sign'];
 const STAGE_LABELS = { review: 'Review', fields: 'Complete fields', authenticate: 'Authenticate', sign: 'Sign' };
 
+// Reason options mirror the recipient's role assigned when the envelope was
+// created (Initiator/Reviewer/Approver) so the recipient doesn't have to
+// retype what their role already says — "Other" covers anything else.
+const ROLE_REASON_LABELS = {
+  Initiator: 'I am the Initiator of this document',
+  Reviewer: 'I am the Reviewer of this document',
+  Approver: 'I am the Approver / Signer of this document',
+};
+
+const formatTimestamp = (value) => `${new Date(value).toISOString().replace('T', ' ').slice(0, 19)} UTC`;
+
 // Draw / Type / Upload composer for signature & initials fields — the same
 // three creation methods as the legacy preview page's signature step.
 const SignatureComposer = ({ onChange, fieldId }) => {
@@ -160,7 +171,8 @@ const SigningPage = () => {
   const canvasRef = useRef(null);
 
   const [values, setValues] = useState({});
-  const [reason, setReason] = useState('');
+  const [reasonRole, setReasonRole] = useState('');
+  const [customReason, setCustomReason] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [otpVerified, setOtpVerified] = useState(false);
@@ -178,6 +190,8 @@ const SigningPage = () => {
         const res = await api.resolveSigningToken(token);
         setInfo(res.data.data);
         setOtpVerified(Boolean(res.data.data.signer.otpVerified));
+        const role = res.data.data.signer.roleLabel;
+        setReasonRole(ROLE_REASON_LABELS[role] ? role : 'Other');
         toast.success('Identity confirmed');
       } catch (error) {
         setLoadError(error.response?.data?.error || 'This signing link is invalid or has expired');
@@ -225,6 +239,8 @@ const SigningPage = () => {
     const id = setInterval(() => setResendInMs((v) => Math.max(0, v - 1000)), 1000);
     return () => clearInterval(id);
   }, [resendInMs]);
+
+  const reason = reasonRole === 'Other' ? customReason.trim() : ROLE_REASON_LABELS[reasonRole] || '';
 
   if (loading) return <div className={styles.centered}>Loading…</div>;
   if (loadError) return <div className={styles.centered}>{loadError}</div>;
@@ -353,7 +369,7 @@ const SigningPage = () => {
               <div className={styles.appearanceMeta}>
                 Digitally signed by {info.signer.name}
                 <br />
-                Date: {new Date().toISOString()}
+                Date: {formatTimestamp(signResult.signedAt || Date.now())}
                 <br />
                 Signed hash: {signResult.signedPdfHash?.slice(0, 24)}…
               </div>
@@ -491,12 +507,29 @@ const SigningPage = () => {
               <label className={styles.label}>
                 Reason <span className={styles.required}>*</span>
               </label>
-              <textarea
-                className={styles.textarea}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Why are you signing this document?"
-              />
+              <select
+                className={styles.input}
+                value={reasonRole}
+                onChange={(e) => setReasonRole(e.target.value)}
+              >
+                <option value="" disabled>
+                  Select a reason…
+                </option>
+                {Object.entries(ROLE_REASON_LABELS).map(([role, label]) => (
+                  <option key={role} value={role}>
+                    {label}
+                  </option>
+                ))}
+                <option value="Other">Other (please specify)</option>
+              </select>
+              {reasonRole === 'Other' && (
+                <textarea
+                  className={styles.textarea}
+                  value={customReason}
+                  onChange={(e) => setCustomReason(e.target.value)}
+                  placeholder="Why are you signing this document?"
+                />
+              )}
               {!reason.trim() && <p className={styles.fieldError}>A reason is required before you can sign.</p>}
 
               {info.signer.identityVerification === 'account_password' ? (
@@ -581,9 +614,11 @@ const SigningPage = () => {
                 <div className={styles.appearanceMeta}>
                   Digitally signed by {info.signer.name}
                   <br />
-                  Date: {new Date().toISOString()}
+                  Date: {formatTimestamp(Date.now())}
                   <br />
                   Signed via SignVault
+                  <br />
+                  Reason: {reason}
                 </div>
               </div>
 

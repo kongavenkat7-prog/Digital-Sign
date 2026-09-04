@@ -340,6 +340,7 @@ router.post('/signing/:token/sign', async (req, res) => {
       data: {
         documentId: signatureRecord.documentId,
         signedPdfHash,
+        signedAt: signer.signedAt,
         allSigned,
         status: signatureRecord.status,
       },
